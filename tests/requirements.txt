@@ -1,0 +1,14 @@
+asyncio==3.4.3
+brainflow==5.12.1
+numpy==1.26.4
+requests==2.31.0
+scipy==1.13.0
+urllib3==2.2.1
+mediapipe
+jsonschema
+cryptography
+bson
+pytest
+pytest-html
+pytest-order
+pytest-dependency

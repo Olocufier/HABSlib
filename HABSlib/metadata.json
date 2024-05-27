@@ -1,0 +1,62 @@
+{
+
+
+  "sessionSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "EEG Session Metadata",
+    "type": "object",
+    "properties": {
+      "user_id": {
+        "type": "string"
+      },
+      "session_date": {
+        "type": "string",
+        "format": "date"
+      },
+      "karolinska_sleep_score": {
+        "type": "integer"
+      },
+      "hours_awake": {
+        "type": "integer"
+      },
+      "duration_of_last_sleep": {
+        "type": "integer"
+      },
+      "additional_notes": {
+        "type": "string"
+      }
+    },
+    "required": ["user_id", "session_date"]
+  },
+
+
+  "userSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "User Profile",
+    "type": "object",
+    "properties": {
+      "first_name": {
+        "type": "string"
+      },
+      "last_name": {
+        "type": "string"
+      },
+      "email": {
+        "type": "string",
+        "format": "email"
+      },
+      "age": {
+        "type": "integer"
+      },
+      "weight": {
+        "type": "integer"
+      },
+      "sex": {
+        "type": "string"
+      }
+    },
+    "required": ["email"]
+  }
+
+
+}
