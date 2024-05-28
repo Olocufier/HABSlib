@@ -84,6 +84,7 @@ def test_set_user(payload, expected_status):
     print("g_user_id",g_user_id)
 
 
+
 #################################################################
 # Get user data by id
 # - if the user is found, should reply {'status': 'success', 'user_data': document}
