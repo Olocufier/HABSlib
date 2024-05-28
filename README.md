@@ -2,13 +2,6 @@
 
 Habslib is a Python library for interacting with a remote API, handling complexities like encryption, authentication, and more, so you can focus on building your application.
 
-## Table of Contents
-
-- [Installation](#installation)
-- [Usage](#usage)
-- [Contributing](#contributing)
-- [License](#license)
-- [Contact](#contact)
 
 ## Installation
 
@@ -59,4 +52,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Contact
 
-If you have any questions or need support, please open an issue on GitHub or contact info@habs.ai.
+If you have any questions or need support, please open an issue on GitHub or contact dev@habs.ai.
