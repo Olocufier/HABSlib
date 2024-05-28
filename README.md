@@ -1,15 +1,11 @@
 # HABSlib
 
-![PyPI](https://pypi.org/project/HABSlib/)
-![License](https://pypi.org/project/HABSlib/)
-
 Habslib is a Python library for interacting with a remote API, handling complexities like encryption, authentication, and more, so you can focus on building your application.
 
 ## Table of Contents
 
 - [Installation](#installation)
 - [Usage](#usage)
-- [Examples](#examples)
 - [Contributing](#contributing)
 - [License](#license)
 - [Contact](#contact)
@@ -29,11 +25,28 @@ Here’s a quick example to get you started:
 ```
 import HABSlib as hb
 
+###############
+# Security handshake
 hb.handshake()
 
+###############
+# Set user/subject (if the user already exists it should not creat one)
 user_id = hb.set_user("Domenico", "Guarino", "domenico@habs.ai", 50, 89, "M")
 
+###############
+# Get user data by id
+user_data = hb.get_user_by_id(user_id)
+print(user_data)
 
+# ###############
+# Simple sending data
+session_id = hb.acquire_send_raw(
+    user_id=user_id, 
+    date=datetime.today().strftime('%Y-%m-%d'), 
+    stream_duration=20, 
+    buffer_duration=5, 
+    overlay=0)
+print("this session:", session_id)
 ```
 
 ## Contributing
