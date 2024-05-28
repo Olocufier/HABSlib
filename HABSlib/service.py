@@ -46,10 +46,10 @@ from . import store_public_key, load_public_key, generate_aes_key, encrypt_aes_k
 
 ######################################################
 # validate the metadata against a specified schema
-def validate_metadata(metadata, schema_name, schemafile='./metadata.json'):
+def validate_metadata(metadata, schema_name, schemafile='metadata.json'):
 
     try:
-        with open(schemafile, 'r') as file:
+        with open(os.path.join(os.path.dirname(__file__), schemafile), 'r') as file:
             content = file.read()
             schemas = json.loads(content)
         schema = schemas[schema_name]
