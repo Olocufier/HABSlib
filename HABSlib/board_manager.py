@@ -13,11 +13,6 @@ from scipy import signal
 #############################
 # BrainOS - FrontEnd - TODO #
 #############################
-# 
-# - Consider multiple boards:
-#       Default: SYNTHETIC_BOARD
-#       BoardIds.MUSE_S_BOARD.value
-#       ...
 #       
 # - Consider multiple flows of data:
 #       https://brainflow.org/2022-07-15-brainflow-5-1-0/
@@ -25,9 +20,7 @@ from scipy import signal
 #       Accelerometer and Gyroscope data to AUXILIARY_PRESET 
 #       and PPG data to ANCILLARY_PRESET (PPG not available for Muse 2016, so Muse 2016 has only two presets). 
 #       Also, each preset has it’s own sampling rate, timestamp and package counter.
-# 
-# - Sleep question
-#       Why is it returning immediately?
+
 
 
 class SingletonMeta(type):
@@ -42,14 +35,14 @@ class SingletonMeta(type):
 
 class BoardManager(metaclass=SingletonMeta):
 
-    def __init__(self, enable_logger):
+    def __init__(self, enable_logger, board_id=BoardIds.SYNTHETIC_BOARD):
         if not hasattr(self, 'initialized'):  # Prevent re-initialization
             self.board = None
             self.board_descr = None
             self.params = BrainFlowInputParams()
 
             # self.board_id = BoardIds.MUSE_S_BOARD.value
-            self.board_id = BoardIds.SYNTHETIC_BOARD
+            self.board_id = board_id
 
             if not enable_logger:
                 BoardShim.disable_board_logger()
