@@ -46,7 +46,7 @@ from . import store_public_key, load_public_key, generate_aes_key, encrypt_aes_k
 
 ######################################################
 # validate the metadata against a specified schema
-def validate_metadata(metadata, schema_name, schemafile='./frontend/habslib/metadata.json'):
+def validate_metadata(metadata, schema_name, schemafile='metadata.json'):
 
     try:
         with open(schemafile, 'r') as file:
