@@ -5,14 +5,15 @@ with open("README.md", "r") as fh:
 
 setup(
     name="HABSlib",
-    version="0.1.8",
+    version="0.1.9",
     author="Domenico Guarino",
     author_email="domenico@habs.ai",
     description="A library for interacting with the HABS BrainOS API.",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/Olocufier/HABS.git",
-    packages=find_packages(),
+    packages=find_packages(where="HABSlib"),
+    include_package_data=True,
     install_requires=[
         "asyncio==3.4.3",
         "brainflow==5.12.1",
