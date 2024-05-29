@@ -294,7 +294,7 @@ def acquire_send_raw(user_id, date, stream_duration, buffer_duration, overlay):
 
 async def _acquire_send_raw(user_id, date, stream_duration, buffer_duration, overlay):
     # get board
-    board_manager = BoardManager(enable_logger=False, board_id=BoardIds.SYNTHETIC_BOARD)
+    board_manager = BoardManager(enable_logger=False, board_id="SYNTHETIC")
     board_manager.connect()
     # set session for the data
     # We set a session id for the current interaction with the API (even if we fail to get the board, it will be important to store the failure)
@@ -386,7 +386,7 @@ def acquire_send_pipe(pipeline, params, user_id, date, stream_duration, buffer_d
 
 async def _acquire_send_pipe(pipeline, params, user_id, date, stream_duration, buffer_duration, overlay):
     # get board
-    board_manager = BoardManager(enable_logger=False, board_id=BoardIds.SYNTHETIC_BOARD)
+    board_manager = BoardManager(enable_logger=False, board_id="SYNTHETIC")
     board_manager.connect()
 
     # set session for the data
