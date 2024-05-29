@@ -35,14 +35,18 @@ class SingletonMeta(type):
 
 class BoardManager(metaclass=SingletonMeta):
 
-    def __init__(self, enable_logger, board_id=BoardIds.SYNTHETIC_BOARD):
+    def __init__(self, enable_logger, board_id="SYNTHETIC_BOARD"):
         if not hasattr(self, 'initialized'):  # Prevent re-initialization
             self.board = None
             self.board_descr = None
             self.params = BrainFlowInputParams()
 
-            # self.board_id = BoardIds.MUSE_S_BOARD.value
-            self.board_id = board_id
+            if board_id == "MUSE_2":
+                self.board_id = BoardIds.MUSE_2_BOARD
+            elif board_id == "MUSE_S":
+                self.board_id = BoardIds.MUSE_S_BOARD.value
+            else:
+                self.board_id = BoardIds.SYNTHETIC_BOARD
 
             if not enable_logger:
                 BoardShim.disable_board_logger()
