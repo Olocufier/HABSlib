@@ -161,7 +161,7 @@ class BoardManager(metaclass=SingletonMeta):
 
                 if data.shape[1] >= buffer_size_samples: # Start processing only when the buffer is full
                     # print(eeg_data.tolist())
-                    data_id, proc_data = await service(metadata=self.metadata, data=eeg_data.tolist(), timestamps=timestamps.tolist())
+                    data_id, proc_data = service(metadata=self.metadata, data=eeg_data.tolist(), timestamps=timestamps.tolist())
                     # print(proc_data)
                     self.processed_data.append( proc_data )
                     self.data_ids.append( data_id )
