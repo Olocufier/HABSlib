@@ -373,7 +373,6 @@ def upload_pipedata(metadata, data, timestamps):
         data_id = response.json().get('data_id')
         # Retrieve the processed data
         data = response.json().get('pipeData')
-        print(data)
         return data_id, data
     else:
         print("Upload failed:", response.text)
@@ -381,11 +380,13 @@ def upload_pipedata(metadata, data, timestamps):
 
 
 ######################################################
-def acquire_send_pipe(pipeline, params, user_id, date, board, stream_duration, buffer_duration):
-    session_id = asyncio.run( _acquire_send_pipe(pipeline, params, user_id, date, board, stream_duration, buffer_duration) )
+def acquire_send_pipe(pipeline, params, user_id, date, board, stream_duration, buffer_duration, callback=None):
+    session_id = asyncio.run( 
+        _acquire_send_pipe(pipeline, params, user_id, date, board, stream_duration, buffer_duration, callback) 
+    )
     return session_id
 
-async def _acquire_send_pipe(pipeline, params, user_id, date, board, stream_duration, buffer_duration):
+async def _acquire_send_pipe(pipeline, params, user_id, date, board, stream_duration, buffer_duration, callback=None):
     # get board
     board_manager = BoardManager(enable_logger=False, board_id=board)
     board_manager.connect()
@@ -404,10 +405,9 @@ async def _acquire_send_pipe(pipeline, params, user_id, date, board, stream_dura
         await board_manager.data_acquisition_loop(
             stream_duration=stream_duration, 
             buffer_duration=buffer_duration, 
-            service=upload_pipedata
+            service=upload_pipedata,
+            callback=callback
         )
-        # use the processed data
-        # print(board_manager.processed_data)
 
         return session_id
     else:

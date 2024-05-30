@@ -66,6 +66,8 @@ class BoardManager(metaclass=SingletonMeta):
                 self.board = BoardShim(self.board_id, self.params)
                 self.board.prepare_session()
                 self.board_descr = BoardShim.get_board_descr(self.board_id)
+                # self.board.config_board("p61")
+                # print(self.board_descr.keys())
                 # Muse S = {
                 #     'eeg_channels': [1, 2, 3, 4], 
                 #     'eeg_names': 'TP9,Fp1,Fp2,TP10', 
@@ -83,8 +85,8 @@ class BoardManager(metaclass=SingletonMeta):
                     self.accel_channels = self.board.get_accel_channels(self.board_id)
                 if "ppg_channels" in self.board_descr.keys():
                     self.ppg_channels = self.board.get_ppg_channels(self.board_id)
+                # print("gyro",self.ppg_channels)
 
-                # self.board.config_board("p61")
                 self.eeg_channels = self.board.get_eeg_channels(self.board_id)
                 self.sampling_rate = self.board.get_sampling_rate(self.board_id)
                 self.timestamp_channel = self.board.get_timestamp_channel(self.board_id)
@@ -132,41 +134,47 @@ class BoardManager(metaclass=SingletonMeta):
     def stop_streaming(self):
         if self.board is None:
             raise Exception("Board not connected!")
-        print("Stopping data streaming...")
+        print("\nStopping data streaming...")
         self.board.stop_stream()
         self.disconnect()
 
-    async def data_acquisition_loop(self, stream_duration, buffer_duration, service):
+    async def data_acquisition_loop(self, stream_duration, buffer_duration, service, callback=None):
         if self.board is None:
             raise Exception("Board not connected!")
         
-        buffer_size_samples = int(self.sampling_rate * buffer_duration)  # 256 * 5 = 1280
-        total_iterations = 1 + math.ceil((stream_duration - buffer_duration) / buffer_duration) # 1440
-        self.board.start_stream(buffer_size_samples) # 7200 * 256 = 1843200
+        buffer_size_samples = int(self.sampling_rate * buffer_duration)
+        total_iterations = 1 + math.ceil((stream_duration - buffer_duration) / buffer_duration)
+        self.board.start_stream(buffer_size_samples)
 
         iter_counter = 0
+        t_ref = None
         try:
-            while total_iterations > iter_counter: # 1440
-
-                time.sleep(buffer_duration) # had to reintroduce, otherwise the buffers are empty
+            while total_iterations > iter_counter:
 
                 data = self.board.get_current_board_data(buffer_size_samples) 
 
                 eeg_data =   data[self.eeg_channels, :]
                 timestamps = data[self.timestamp_channel, :]
+
                 if "accel_channels" in self.board_descr:
                     accel_data = data[ self.metadata['accel_channels'], :]
                 if "ppg_channels" in self.board_descr:
                     ppg_data = data[ self.metadata['ppg_channels'], :]
 
                 if data.shape[1] >= buffer_size_samples: # Start processing only when the buffer is full
-                    # print(eeg_data.tolist())
-                    data_id, proc_data = service(metadata=self.metadata, data=eeg_data.tolist(), timestamps=timestamps.tolist())
-                    # print(proc_data)
-                    self.processed_data.append( proc_data )
-                    self.data_ids.append( data_id )
-                    #await callback(proc_data)
-                    iter_counter += 1  
+                    t_current = timestamps[0]
+                    if t_ref is None:
+                        t_ref = timestamps[0]
+
+                    if t_current >= t_ref + buffer_duration:
+                        data_id, proc_data = service(metadata=self.metadata, data=eeg_data.tolist(), timestamps=timestamps.tolist())
+                        self.processed_data.append( proc_data )
+                        self.data_ids.append( data_id )
+                        if callback:
+                            callback( proc_data )
+                        # next itaration
+                        t_ref = t_current
+                        iter_counter += 1  
 
         except KeyboardInterrupt:
             print("KeyboardInterrupt detected.")
