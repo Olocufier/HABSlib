@@ -35,7 +35,7 @@ class SingletonMeta(type):
 
 class BoardManager(metaclass=SingletonMeta):
 
-    def __init__(self, enable_logger, board_id="SYNTHETIC_BOARD"):
+    def __init__(self, enable_logger, board_id="SYNTHETIC"):
         if not hasattr(self, 'initialized'):  # Prevent re-initialization
             self.board = None
             self.board_descr = None
@@ -148,7 +148,7 @@ class BoardManager(metaclass=SingletonMeta):
         try:
             while total_iterations > iter_counter: # 1440
 
-                # time.sleep(buffer_duration) # had to reintroduce, otherwise the buffers are empty
+                time.sleep(buffer_duration) # had to reintroduce, otherwise the buffers are empty
 
                 data = self.board.get_current_board_data(buffer_size_samples) 
 
