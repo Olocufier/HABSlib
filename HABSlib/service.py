@@ -290,13 +290,13 @@ def upload_data(metadata, data, timestamps):
 
 
 ######################################################
-def acquire_send_raw(user_id, date, stream_duration, buffer_duration):
-    session_id = asyncio.run( _acquire_send_raw(user_id, date, stream_duration, buffer_duration) )
+def acquire_send_raw(user_id, date, board, stream_duration, buffer_duration):
+    session_id = asyncio.run( _acquire_send_raw(user_id, date, board, stream_duration, buffer_duration) )
     return session_id
 
-async def _acquire_send_raw(user_id, date, stream_duration, buffer_duration):
+async def _acquire_send_raw(user_id, date, board, stream_duration, buffer_duration):
     # get board
-    board_manager = BoardManager(enable_logger=False, board_id="SYNTHETIC")
+    board_manager = BoardManager(enable_logger=False, board_id=board)
     board_manager.connect()
     # set session for the data
     # We set a session id for the current interaction with the API (even if we fail to get the board, it will be important to store the failure)
@@ -381,13 +381,13 @@ def upload_pipedata(metadata, data, timestamps):
 
 
 ######################################################
-def acquire_send_pipe(pipeline, params, user_id, date, stream_duration, buffer_duration):
-    session_id = asyncio.run( _acquire_send_pipe(pipeline, params, user_id, date, stream_duration, buffer_duration) )
+def acquire_send_pipe(pipeline, params, user_id, date, board, stream_duration, buffer_duration):
+    session_id = asyncio.run( _acquire_send_pipe(pipeline, params, user_id, date, board, stream_duration, buffer_duration) )
     return session_id
 
-async def _acquire_send_pipe(pipeline, params, user_id, date, stream_duration, buffer_duration):
+async def _acquire_send_pipe(pipeline, params, user_id, date, board, stream_duration, buffer_duration):
     # get board
-    board_manager = BoardManager(enable_logger=False, board_id="SYNTHETIC")
+    board_manager = BoardManager(enable_logger=False, board_id=board)
     board_manager.connect()
 
     # set session for the data
@@ -402,6 +402,7 @@ async def _acquire_send_pipe(pipeline, params, user_id, date, stream_duration, b
 
         # stream_duration sec, buffer_duration sec
         await board_manager.data_acquisition_loop(
+            board=board,
             stream_duration=stream_duration, 
             buffer_duration=buffer_duration, 
             service=upload_pipedata

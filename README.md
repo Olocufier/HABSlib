@@ -1,6 +1,6 @@
 # HABSlib
 
-Habslib is a Python library for interacting with a remote API, handling complexities like encryption, authentication, and more, so you can focus on building your application.
+A Python library for interacting with the HABS BrainOS API, to manage EEG recordings, handling complexities like encryption, authentication, and more, so you can focus on building your application.
 
 
 ## Installation
@@ -20,7 +20,7 @@ import HABSlib as hb
 
 ###############
 # Security handshake
-hb.handshake()
+hb.handshake(base_url="http://0.0.0.0")
 
 ###############
 # Set user/subject (if the user already exists it should not creat one)
@@ -36,9 +36,10 @@ print(user_data)
 session_id = hb.acquire_send_raw(
     user_id=user_id, 
     date=datetime.today().strftime('%Y-%m-%d'), 
+    board="SYNTHETIC",
     stream_duration=20, 
-    buffer_duration=5, 
-    overlay=0)
+    buffer_duration=5
+)
 print("this session:", session_id)
 ```
 
