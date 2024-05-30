@@ -136,13 +136,13 @@ class BoardManager(metaclass=SingletonMeta):
         self.board.stop_stream()
         self.disconnect()
 
-    async def data_acquisition_loop(self, stream_duration, buffer_duration, overlay, service):
+    async def data_acquisition_loop(self, stream_duration, buffer_duration, service):
         if self.board is None:
             raise Exception("Board not connected!")
         
         buffer_size_samples = int(self.sampling_rate * buffer_duration)  # 256 * 5 = 1280
-        total_iterations = 1 + math.ceil((stream_duration - buffer_duration) / (buffer_duration - overlay)) # 1440
-        self.board.start_stream(stream_duration * self.sampling_rate) # 7200 * 256 = 1843200
+        total_iterations = 1 + math.ceil((stream_duration - buffer_duration) / buffer_duration) # 1440
+        self.board.start_stream(buffer_size_samples) # 7200 * 256 = 1843200
 
         iter_counter = 0
         try:

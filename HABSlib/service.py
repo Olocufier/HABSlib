@@ -76,7 +76,9 @@ def validate_metadata(metadata, schema_name, schemafile='metadata.json'):
 
 
 ######################################################
-def handshake():  
+def handshake(base_url):  
+    global BASE_URL
+    BASE_URL = base_url
     url = f"{BASE_URL}/api/{VERSION}/handshake_rsa"
     response = requests.get(url)
 
@@ -288,11 +290,11 @@ def upload_data(metadata, data, timestamps):
 
 
 ######################################################
-def acquire_send_raw(user_id, date, stream_duration, buffer_duration, overlay):
-    session_id = asyncio.run( _acquire_send_raw(user_id, date, stream_duration, buffer_duration, overlay) )
+def acquire_send_raw(user_id, date, stream_duration, buffer_duration):
+    session_id = asyncio.run( _acquire_send_raw(user_id, date, stream_duration, buffer_duration) )
     return session_id
 
-async def _acquire_send_raw(user_id, date, stream_duration, buffer_duration, overlay):
+async def _acquire_send_raw(user_id, date, stream_duration, buffer_duration):
     # get board
     board_manager = BoardManager(enable_logger=False, board_id="SYNTHETIC")
     board_manager.connect()
@@ -310,7 +312,6 @@ async def _acquire_send_raw(user_id, date, stream_duration, buffer_duration, ove
         await board_manager.data_acquisition_loop(
             stream_duration=stream_duration, 
             buffer_duration=buffer_duration, 
-            overlay=overlay, 
             service=upload_data
         )
 
@@ -380,11 +381,11 @@ def upload_pipedata(metadata, data, timestamps):
 
 
 ######################################################
-def acquire_send_pipe(pipeline, params, user_id, date, stream_duration, buffer_duration, overlay):
-    session_id = asyncio.run( _acquire_send_pipe(pipeline, params, user_id, date, stream_duration, buffer_duration, overlay) )
+def acquire_send_pipe(pipeline, params, user_id, date, stream_duration, buffer_duration):
+    session_id = asyncio.run( _acquire_send_pipe(pipeline, params, user_id, date, stream_duration, buffer_duration) )
     return session_id
 
-async def _acquire_send_pipe(pipeline, params, user_id, date, stream_duration, buffer_duration, overlay):
+async def _acquire_send_pipe(pipeline, params, user_id, date, stream_duration, buffer_duration):
     # get board
     board_manager = BoardManager(enable_logger=False, board_id="SYNTHETIC")
     board_manager.connect()
@@ -403,7 +404,6 @@ async def _acquire_send_pipe(pipeline, params, user_id, date, stream_duration, b
         await board_manager.data_acquisition_loop(
             stream_duration=stream_duration, 
             buffer_duration=buffer_duration, 
-            overlay=overlay, 
             service=upload_pipedata
         )
         # use the processed data
