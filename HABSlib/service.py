@@ -402,7 +402,6 @@ async def _acquire_send_pipe(pipeline, params, user_id, date, board, stream_dura
 
         # stream_duration sec, buffer_duration sec
         await board_manager.data_acquisition_loop(
-            board=board,
             stream_duration=stream_duration, 
             buffer_duration=buffer_duration, 
             service=upload_pipedata
