@@ -1,4 +1,8 @@
-from brainflow.board_shim import BoardShim, BrainFlowInputParams, BoardIds
+from brainflow.board_shim import BoardShim
+from brainflow.board_shim import BrainFlowInputParams
+from brainflow.board_shim import BoardIds
+from brainflow.board_shim import BrainFlowPresets
+from brainflow.data_filter import DataFilter
 
 import asyncio
 import time
@@ -38,6 +42,7 @@ class BoardManager(metaclass=SingletonMeta):
     def __init__(self, enable_logger, board_id="SYNTHETIC"):
         if not hasattr(self, 'initialized'):  # Prevent re-initialization
             self.board = None
+            self.preset = None
             self.board_descr = None
             self.params = BrainFlowInputParams()
 
@@ -45,6 +50,7 @@ class BoardManager(metaclass=SingletonMeta):
                 self.board_id = BoardIds.MUSE_2_BOARD
             elif board_id == "MUSE_S":
                 self.board_id = BoardIds.MUSE_S_BOARD.value
+                self.preset = BrainFlowPresets.ANCILLARY_PRESET
             else:
                 self.board_id = BoardIds.SYNTHETIC_BOARD
 
@@ -66,31 +72,16 @@ class BoardManager(metaclass=SingletonMeta):
                 self.board = BoardShim(self.board_id, self.params)
                 self.board.prepare_session()
                 self.board_descr = BoardShim.get_board_descr(self.board_id)
-                # self.board.config_board("p61")
-                # print(self.board_descr.keys())
-                # Muse S = {
-                #     'eeg_channels': [1, 2, 3, 4], 
-                #     'eeg_names': 'TP9,Fp1,Fp2,TP10', 
-                #     'marker_channel': 7, 
-                #     'name': 'MuseS', 
-                #     'num_rows': 8, 
-                #     'other_channels': [5], 
-                #     'package_num_channel': 0, 
-                #     'sampling_rate': 256, 
-                #     'timestamp_channel': 6
-                # }
-                if "gyro_channels" in self.board_descr.keys():
-                    self.gyro_channels = self.board.get_gyro_channels(self.board_id)
-                if "accel_channels" in self.board_descr.keys():
-                    self.accel_channels = self.board.get_accel_channels(self.board_id)
-                if "ppg_channels" in self.board_descr.keys():
-                    self.ppg_channels = self.board.get_ppg_channels(self.board_id)
-                # print("gyro",self.ppg_channels)
+                self.board.config_board("p52") #or p50 - both give the same result for some reason - need further exploration.
 
                 self.eeg_channels = self.board.get_eeg_channels(self.board_id)
                 self.sampling_rate = self.board.get_sampling_rate(self.board_id)
                 self.timestamp_channel = self.board.get_timestamp_channel(self.board_id)
                 # depending on the model
+                if self.board_id == BoardIds.MUSE_S_BOARD.value:
+                    # self.gyro_channels = self.board.get_gyro_channels(self.board_id), self.preset
+                    # self.accel_channels = self.board.get_accel_channels(self.board_id, self.preset)
+                    self.ppg_channels = self.board.get_ppg_channels(self.board_id, self.preset)
 
                 # metadata
                 self.metadata = {
@@ -98,10 +89,8 @@ class BoardManager(metaclass=SingletonMeta):
                     'eeg_channels': self.eeg_channels,
                     'sampling_rate': self.sampling_rate,
                 }
-                if "accel_channels" in self.board_descr.keys():
-                    self.metadata['accel_channels'] = self.board.get_accel_channels(self.board_id)
-                if "ppg_channels" in self.board_descr.keys():
-                    self.metadata['ppg_channels'] = self.board.get_ppg_channels(self.board_id)
+                if self.board_id == BoardIds.MUSE_S_BOARD.value:
+                    self.metadata['ppg_channels'] = self.ppg_channels
 
                 # print(self.metadata)
 
@@ -155,11 +144,15 @@ class BoardManager(metaclass=SingletonMeta):
 
                 eeg_data =   data[self.eeg_channels, :]
                 timestamps = data[self.timestamp_channel, :]
-
-                if "accel_channels" in self.board_descr:
-                    accel_data = data[ self.metadata['accel_channels'], :]
-                if "ppg_channels" in self.board_descr:
-                    ppg_data = data[ self.metadata['ppg_channels'], :]
+                # Board-dependent data
+                if self.board_id == BoardIds.MUSE_S_BOARD.value:
+                    ppg_ir = data[ self.ppg_channels[1] ]
+                    ppg_red = data[ self.ppg_channels[0] ] 
+                    if len(ppg_red)>1024 and len(ppg_ir)>1024: # minimum required for functions
+                        oxygen_level = DataFilter.get_oxygen_level(ppg_ir, ppg_red, self.sampling_rate)
+                        # print("oxygen_level: ", oxygen_level)
+                        heart_rate = DataFilter.get_heart_rate(ppg_ir, ppg_red, self.sampling_rate, 1024) 
+                        # print("heart_rate:",heart_rate)
 
                 if data.shape[1] >= buffer_size_samples: # Start processing only when the buffer is full
                     t_current = timestamps[0]
@@ -167,7 +160,14 @@ class BoardManager(metaclass=SingletonMeta):
                         t_ref = timestamps[0]
 
                     if t_current >= t_ref + buffer_duration:
-                        data_id, proc_data = service(metadata=self.metadata, data=eeg_data.tolist(), timestamps=timestamps.tolist())
+                        data_id, proc_data = service(
+                            metadata=self.metadata, 
+                            data=eeg_data.tolist(), 
+                            timestamps=timestamps.tolist(), 
+                            ppg_red=ppg_red.tolist(), 
+                            ppg_ir=ppg_ir.tolist()
+                        )
+                        # data_id, proc_data = service(metadata=self.metadata, data=[eeg_data.tolist(), ppg_ir.tolist(), ppg_red.tolist()], timestamps=timestamps.tolist())
                         self.processed_data.append( proc_data )
                         self.data_ids.append( data_id )
                         if callback:

@@ -51,7 +51,7 @@
       "weight": {
         "type": "integer"
       },
-      "sex": {
+      "gender": {
         "type": "string"
       }
     },

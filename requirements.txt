@@ -11,3 +11,5 @@ pytest
 pytest-html
 pytest-order
 pytest-dependency
+pdoc
+pyEDFlib
