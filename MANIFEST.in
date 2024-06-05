@@ -1,3 +1,6 @@
 include README.md
 include requirements.txt
 include HABSlib/metadata.json
+
+include docs/*.html
+include docs/*/*.html

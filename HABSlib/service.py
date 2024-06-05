@@ -433,6 +433,26 @@ def get_data_by_id(data_id):
         print("Failed to retrieve data:", response.text)
 
 
+
+######################################################
+def find_sessions_by_user(user_id):
+    url = f"{BASE_URL}/api/{VERSION}/sessions/{user_id}"
+
+    response = requests.get(url)
+
+    if response.status_code == 200:
+        print("User found.")
+        encrypted_data = response.content 
+        aes_key_b64 = os.environ.get('AES_KEY')
+        aes_key_bytes = base64.b64decode(aes_key_b64)
+        decrypted_json_string = decrypt_message(encrypted_data, aes_key_bytes)
+        session_ids = json.loads(decrypted_json_string)['session_ids']
+        return session_ids
+    else:
+        print("Failed to retrieve data:", response.text)
+
+
+
 ######################################################
 def get_data_by_session(session_id):
     """
