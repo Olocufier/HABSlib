@@ -1,4 +1,5 @@
-# 
+# USAGE:
+ # % pytest tests/test_habslib.py
 
 import pytest
 
@@ -13,13 +14,10 @@ from datetime import datetime
 
 from scipy import signal
 
-
-from . import BASE_URL, VERSION
-from . import store_public_key, load_public_key, generate_aes_key, encrypt_aes_key_with_rsa, encrypt_message, decrypt_message
+from . import BASE_URL, VERSION, BOARD
 
 # HABSlib
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../frontend')))
-import habslib as hb
+import HABSlib as hb
 
 #################################################################
 # GLOBALS
@@ -48,7 +46,7 @@ def is_valid_uuid(val):
 @pytest.mark.dependency
 def test_handshake():
     start_time = time.time()
-    result = hb.handshake() ## CALL
+    result = hb.handshake(base_url=BASE_URL) ## CALL
     end_time = time.time()
     duration = end_time - start_time
     # Attach the duration to the test report
@@ -66,7 +64,7 @@ def test_handshake():
 @pytest.mark.dependency
 @pytest.mark.parametrize("payload, expected_status", [ 
     # pytest.param({}, 400,  marks=pytest.mark.xfail()),
-    ({'email': 'domenico@habs.ai', 'first_name':"Domenico", 'last_name':"Guarino", 'age':50, 'weight':89, 'sex':"M"}, 200)
+    ({'email': 'domenico@habs.ai', 'first_name':"Domenico", 'last_name':"Guarino", 'age':50, 'weight':89, 'gender':"M"}, 200)
 ])
 def test_set_user(payload, expected_status):
     print(payload)
@@ -148,9 +146,9 @@ def test_acquire_send_raw(user_id, expected_status):
     session_id = hb.acquire_send_raw(
         user_id=user_id, 
         date=datetime.today().strftime('%Y-%m-%d'), 
+        board=BOARD,
         stream_duration=10, 
-        buffer_duration=5, 
-        overlay=0)
+        buffer_duration=5)
     end_time = time.time()
     duration = end_time - start_time
     # Attach the duration to the test report
@@ -182,10 +180,10 @@ def test_acquire_send_pipe(user_id, expected_status):
         user_id = g_user_id
     start_time = time.time()
     session_id = hb.acquire_send_pipe(
-        pipeline='/preprocessing/theta',
+        pipeline='/filtering/theta',
         params={ 
             # dictionary, the order does not matter, they will be called by key
-            "preprocessing": {
+            "filtering": {
                 'a_notch': a_notch.tolist(),
                 'b_notch': b_notch.tolist(),
                 'sos': sos.tolist(),
@@ -194,9 +192,9 @@ def test_acquire_send_pipe(user_id, expected_status):
         },
         user_id=user_id, 
         date=datetime.today().strftime('%Y-%m-%d'), 
+        board=BOARD,
         stream_duration=20, 
-        buffer_duration=5, 
-        overlay=0
+        buffer_duration=5
     )
     end_time = time.time()
     duration = end_time - start_time

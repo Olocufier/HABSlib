@@ -20,9 +20,10 @@ from pytest_html import extras
 
 import sys
 import os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../frontend/habslib')))
-from crypt import store_public_key, load_public_key, generate_aes_key, encrypt_aes_key_with_rsa, encrypt_message, decrypt_message
+print(os.path.abspath(os.path.join(os.path.dirname(__file__), '../HABSlib/')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../HABSlib/')))
 
+from crypt import store_public_key, load_public_key, generate_aes_key, encrypt_aes_key_with_rsa, encrypt_message, decrypt_message
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.backends import default_backend
 

@@ -1,3 +1,3 @@
-from .config import BASE_URL, VERSION
+from .config import BASE_URL, VERSION, BOARD
 
 from .conftest import *

@@ -144,6 +144,9 @@ class BoardManager(metaclass=SingletonMeta):
 
                 eeg_data =   data[self.eeg_channels, :]
                 timestamps = data[self.timestamp_channel, :]
+                ppg_ir = np.array([])
+                ppg_red = np.array([])
+                
                 # Board-dependent data
                 if self.board_id == BoardIds.MUSE_S_BOARD.value:
                     ppg_ir = data[ self.ppg_channels[1] ]
