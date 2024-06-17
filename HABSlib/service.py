@@ -213,7 +213,7 @@ def handshake(base_url, user_id):
 
 
 ######################################################
-def set_user(first_name=None, last_name=None, role=None, group=None, email=None, age=None, weight=None, gender=None):
+def set_user(user_id, first_name=None, last_name=None, role=None, group=None, email=None, age=None, weight=None, gender=None):
     """
     Creates a user by sending user data to the server.
 
@@ -225,6 +225,7 @@ def set_user(first_name=None, last_name=None, role=None, group=None, email=None,
     5. Handles the server's response.
 
     Args:     
+    **user_id** (*str*): The user id (obtained through free registration with HABS)
     **first_name** (*str*, optional): The user's first name.      
     **last_name** (*str*, optional): The user's last name.     
     **role** (*str*, required): The user's role (Admin, Developer, ... established at registration).     
@@ -282,13 +283,14 @@ def set_user(first_name=None, last_name=None, role=None, group=None, email=None,
 
 
 ######################################################
-def search_user_by_mail(email):
+def search_user_by_mail(user_id, email):
     """
     Search for a user by email.
 
     This function sends a GET request to the server to search for a user by the provided email address.
 
     Args:     
+        **user_id** (*str*): The user id (obtained through free registration with HABS)
         **email** (*str*): The email address of the user to search for.
 
     Returns:     
