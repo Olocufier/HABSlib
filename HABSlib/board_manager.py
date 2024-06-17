@@ -39,7 +39,7 @@ class SingletonMeta(type):
 
 class BoardManager(metaclass=SingletonMeta):
 
-    def __init__(self, enable_logger, board_id="SYNTHETIC"):
+    def __init__(self, enable_logger, board_id="SYNTHETIC", serial_number="MuseS-88D1"):
         if not hasattr(self, 'initialized'):  # Prevent re-initialization
             self.board = None
             self.preset = None
@@ -54,12 +54,17 @@ class BoardManager(metaclass=SingletonMeta):
             else:
                 self.board_id = BoardIds.SYNTHETIC_BOARD
 
+            self.params.serial_number = serial_number
+            if self.board_id == BoardIds.SYNTHETIC_BOARD:
+                self.params.serial_number = ""
+
             if not enable_logger:
                 BoardShim.disable_board_logger()
             self.initialized = True  # Mark as initialized
             # local availability
             self.data_ids = []
             self.processed_data = []
+
 
     def connect(self, retries=3, delay=2):
         if self.board is not None:
@@ -127,7 +132,7 @@ class BoardManager(metaclass=SingletonMeta):
         self.board.stop_stream()
         self.disconnect()
 
-    async def data_acquisition_loop(self, stream_duration, buffer_duration, service, callback=None):
+    async def data_acquisition_loop(self, stream_duration, buffer_duration, service, user_id, callback=None):
         if self.board is None:
             raise Exception("Board not connected!")
         
@@ -167,10 +172,10 @@ class BoardManager(metaclass=SingletonMeta):
                             metadata=self.metadata, 
                             data=eeg_data.tolist(), 
                             timestamps=timestamps.tolist(), 
+                            user_id=user_id,
                             ppg_red=ppg_red.tolist(), 
                             ppg_ir=ppg_ir.tolist()
                         )
-                        # data_id, proc_data = service(metadata=self.metadata, data=[eeg_data.tolist(), ppg_ir.tolist(), ppg_red.tolist()], timestamps=timestamps.tolist())
                         self.processed_data.append( proc_data )
                         self.data_ids.append( data_id )
                         if callback:

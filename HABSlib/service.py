@@ -141,7 +141,7 @@ def convert_datetime_in_dict(data):
 
 
 ######################################################
-def handshake(base_url):  
+def handshake(base_url, user_id):  
     """
     Perform a handshake with the server to exchange encryption keys for the current session.
 
@@ -155,6 +155,7 @@ def handshake(base_url):
 
     Args:      
         **base_url** (*str*): The base URL of the server's API.
+        **user_id** (*str*): The user id (obtained through free registration with HABS)
 
     Returns:     
         *bool*: True if the handshake is successful, None otherwise.
@@ -174,7 +175,8 @@ def handshake(base_url):
     global BASE_URL
     BASE_URL = base_url
     url = f"{BASE_URL}/api/{VERSION}/handshake_rsa"
-    response = requests.get(url)
+    # response = requests.get(url)
+    response = requests.get(url, headers={'X-User-ID':user_id}) # mongo _id for the user document. Communicated at user creation.
 
     if response.status_code == 200:
         print("Handshake (RSA) successful.")
@@ -196,7 +198,7 @@ def handshake(base_url):
         aes_key_payload = {
             "encrypted_aes_key": encrypted_aes_key_b64
         }
-        response = requests.post(f"{BASE_URL}/api/{VERSION}/handshake_aes", json=aes_key_payload)
+        response = requests.post(f"{BASE_URL}/api/{VERSION}/handshake_aes", json=aes_key_payload, headers={'X-User-ID':user_id})
 
         if response.status_code == 200:
             print("Handshake (AES) successful.")
@@ -211,7 +213,7 @@ def handshake(base_url):
 
 
 ######################################################
-def set_user(first_name=None, last_name=None, email=None, age=None, weight=None, gender=None):
+def set_user(first_name=None, last_name=None, role=None, group=None, email=None, age=None, weight=None, gender=None):
     """
     Creates a user by sending user data to the server.
 
@@ -225,7 +227,9 @@ def set_user(first_name=None, last_name=None, email=None, age=None, weight=None,
     Args:     
     **first_name** (*str*, optional): The user's first name.      
     **last_name** (*str*, optional): The user's last name.     
-    **email** (*str*, optional): The user's email address.     
+    **role** (*str*, required): The user's role (Admin, Developer, ... established at registration).     
+    **group** (*str*, optional): The user's group (laboratory name, company name, ...).     
+    **email** (*str*, required): The user's email address.     
     **age** (*int*, optional): The user's age.     
     **weight** (*float*, optional): The user's weight.     
     **gender** (*str*, optional): The user's gender.      
@@ -246,6 +250,8 @@ def set_user(first_name=None, last_name=None, email=None, age=None, weight=None,
     user_data = {
         "first_name": first_name, 
         "last_name": last_name, 
+        "role": role, 
+        "group": group, 
         "email": email, 
         "age": age, 
         "weight": weight, 
@@ -261,7 +267,7 @@ def set_user(first_name=None, last_name=None, email=None, age=None, weight=None,
         response = requests.post(
             url,
             data=encrypt_message(_user, aes_key_bytes),
-            headers={'Content-Type': 'application/octet-stream'}
+            headers={'Content-Type': 'application/octet-stream', 'X-User-ID':user_id}
         )
 
         if response.status_code == 200:
@@ -299,7 +305,7 @@ def search_user_by_mail(email):
     """
     url = f"{BASE_URL}/api/{VERSION}/users?email={email}"
 
-    response = requests.get(url)
+    response = requests.get(url, headers={'X-User-ID':user_id}) # mongo _id for the user document. Communicated at user creation.
 
     if response.status_code == 200:
         user_id = response.json().get('user_id')
@@ -335,7 +341,7 @@ def get_user_by_id(user_id):
     """
     url = f"{BASE_URL}/api/{VERSION}/users/{user_id}"
 
-    response = requests.get(url)
+    response = requests.get(url, headers={'X-User-ID':user_id}) # mongo _id for the user document. Communicated at user creation.
 
     if response.status_code == 200:
         print("User found.")
@@ -351,7 +357,7 @@ def get_user_by_id(user_id):
 
 
 ######################################################
-def set_session(metadata):
+def set_session(metadata, user_id):
     """
     Create a new simple session.
 
@@ -360,6 +366,7 @@ def set_session(metadata):
 
     Args:     
         **metadata** (*dict*): A dictionary containing the session metadata. The only required metadata for the simple session are the user_id and a date.
+        **user_id** (*str*): The user id (obtained through free registration with HABS)
 
     Returns:      
         *str*: The unique identifier of the created session if successful, None otherwise.
@@ -385,7 +392,7 @@ def set_session(metadata):
     response = requests.post(
         url,
         data=encrypt_message(_session, aes_key_bytes),
-        headers={'Content-Type': 'application/octet-stream'}
+        headers={'Content-Type': 'application/octet-stream', 'X-User-ID':user_id}
     )
 
     if response.status_code == 200:
@@ -393,7 +400,7 @@ def set_session(metadata):
         # Extract the unique identifier for the uploaded data
         session_id = response.json().get('session_id')
 
-        # print(session_id)
+        # print("session_id: ",session_id)
         return session_id
     else:
         print("Session failed:", response.text)
@@ -401,7 +408,7 @@ def set_session(metadata):
 
 
 ######################################################
-def get_data_by_id(data_id):
+def get_data_by_id(data_id, user_id):
     """
     Retrieve raw data by its unique identifier from the server.
 
@@ -410,6 +417,7 @@ def get_data_by_id(data_id):
 
     Args:      
         **data_id** (*str*): The unique identifier for the data to be retrieved.
+        **user_id** (*str*): The user id (obtained through free registration with HABS)
 
     Returns:       
         **dict**: The raw data if retrieval is successful, None otherwise.
@@ -421,10 +429,11 @@ def get_data_by_id(data_id):
     ... use the data
     ```
     """
-    get_url = f"{BASE_URL}/api/{VERSION}/rawdata/{data_id}"
+    url = f"{BASE_URL}/api/{VERSION}/rawdata/{data_id}"
     
-    response = requests.get(get_url)
-    
+    # response = requests.get(url)
+    response = requests.get(url, headers={'X-User-ID':user_id}) # mongo _id for the user document. Communicated at user creation.
+
     if response.status_code == 200:
         print("Retrieved data successfully.")
         # decrypt
@@ -436,9 +445,13 @@ def get_data_by_id(data_id):
 
 ######################################################
 def find_sessions_by_user(user_id):
+    """
+            **user_id** (*str*): The user id (obtained through free registration with HABS)
+
+    """
     url = f"{BASE_URL}/api/{VERSION}/sessions/{user_id}"
 
-    response = requests.get(url)
+    response = requests.get(url, headers={'X-User-ID':user_id}) # mongo _id for the user document. Communicated at user creation.
 
     if response.status_code == 200:
         print("User found.")
@@ -454,7 +467,7 @@ def find_sessions_by_user(user_id):
 
 
 ######################################################
-def get_data_by_session(session_id):
+def get_data_by_session(session_id, user_id):
     """
     Retrieve raw data associated with a specific session identifier from the server.
 
@@ -463,6 +476,7 @@ def get_data_by_session(session_id):
 
     Args:      
         **session_id** (*str*): The session identifier whose associated data is to be retrieved.
+        **user_id** (*str*): The user id (obtained through free registration with HABS)
 
     Returns:       
         *dict*: The raw data linked to the session if retrieval is successful, None otherwise.
@@ -477,9 +491,10 @@ def get_data_by_session(session_id):
         print("Failed to retrieve data.")
     ```
     """
-    get_url = f"{BASE_URL}/api/{VERSION}/sessions/{session_id}/rawdata"
+    url = f"{BASE_URL}/api/{VERSION}/sessions/{session_id}/rawdata"
     
-    response = requests.get(get_url)
+    # response = requests.get(url)
+    response = requests.get(url, headers={'X-User-ID':user_id}) # mongo _id for the user document. Communicated at user creation.
     
     if response.status_code == 200:
         print("Retrieved data successfully.")
@@ -491,7 +506,7 @@ def get_data_by_session(session_id):
 
 
 ######################################################
-def get_data_ids_by_session(session_id):
+def get_data_ids_by_session(session_id, user_id):
     """
     Retrieve a list of data IDs associated with a specific session from the server.
 
@@ -500,6 +515,7 @@ def get_data_ids_by_session(session_id):
 
     Args:      
         **session_id** (*str*): The session identifier for which data IDs are to be retrieved.
+        **user_id** (*str*): The user id (obtained through free registration with HABS)
 
     Returns:       
         *list*: A list of data IDs if retrieval is successful, None otherwise.
@@ -514,9 +530,10 @@ def get_data_ids_by_session(session_id):
         print("Failed to retrieve data IDs.")
     ```
     """
-    get_url = f"{BASE_URL}/api/{VERSION}/sessions/{session_id}/ids"
+    url = f"{BASE_URL}/api/{VERSION}/sessions/{session_id}/ids"
     
-    response = requests.get(get_url)
+    # response = requests.get(url)
+    response = requests.get(url, headers={'X-User-ID':user_id}) # mongo _id for the user document. Communicated at user creation.
     
     if response.status_code == 200:
         print("Retrieved ids successfully.")
@@ -528,7 +545,7 @@ def get_data_ids_by_session(session_id):
 
 
 ######################################################
-def upload_data(metadata, timestamps, data, ppg_red, ppg_ir):
+def upload_data(metadata, timestamps, user_id, data, ppg_red, ppg_ir):
     """
     Uploads EEG and PPG data to the server along with associated metadata.
 
@@ -537,14 +554,15 @@ def upload_data(metadata, timestamps, data, ppg_red, ppg_ir):
     unique identifier for the data which can then be used for future queries or operations.
 
     Args:     
-    **metadata** (*dict*): Information about the data such as subject details and session parameters.     
-    **timestamps** (*list*): List of timestamps correlating with each data point.     
-    **data** (*list*): EEG data points.     
-    **ppg_red** (*list*): Red photoplethysmogram data points.     
-    **ppg_ir** (*list*): Infrared photoplethysmogram data points.      
+        **metadata** (*dict*): Information about the data such as subject details and session parameters.     
+        **timestamps** (*list*): List of timestamps correlating with each data point.     
+        **user_id** (*str*): The user id (obtained through free registration with HABS)
+        **data** (*list*): EEG data points.     
+        **ppg_red** (*list*): Red photoplethysmogram data points.     
+        **ppg_ir** (*list*): Infrared photoplethysmogram data points.      
 
     Returns:     
-    *tuple*: A tuple containing the data ID of the uploaded data if successful, and None otherwise.
+        *tuple*: A tuple containing the data ID of the uploaded data if successful, and None otherwise.
 
     Example:
     ```
@@ -576,8 +594,9 @@ def upload_data(metadata, timestamps, data, ppg_red, ppg_ir):
     response = requests.post(
         url,
         data=encrypt_message(_data, aes_key_bytes),
-        headers={'Content-Type': 'application/octet-stream'}
+        headers={'Content-Type': 'application/octet-stream', 'X-User-ID':user_id}
     )
+    # response = requests.get(url, headers={'X-User-ID':USERID}) # mongo _id for the user document. Communicated at user creation.
 
     if response.status_code == 200:
         print('.', end='', flush=True)
@@ -591,7 +610,7 @@ def upload_data(metadata, timestamps, data, ppg_red, ppg_ir):
 
 
 ######################################################
-def acquire_send_raw(user_id, date, board, stream_duration, buffer_duration):
+def acquire_send_raw(user_id, date, board, serial_number, stream_duration, buffer_duration):
     """
     Asynchronously acquires raw data from a specific EEG board and sends it to the server.
 
@@ -623,12 +642,12 @@ def acquire_send_raw(user_id, date, board, stream_duration, buffer_duration):
         print("Failed to start session")
     ```
     """
-    session_id = asyncio.run( _acquire_send_raw(user_id, date, board, stream_duration, buffer_duration) )
+    session_id = asyncio.run( _acquire_send_raw(user_id, date, board, serial_number, stream_duration, buffer_duration) )
     return session_id
 
-async def _acquire_send_raw(user_id, date, board, stream_duration, buffer_duration):
+async def _acquire_send_raw(user_id, date, board, serial_number, stream_duration, buffer_duration):
     # get board
-    board_manager = BoardManager(enable_logger=False, board_id=board)
+    board_manager = BoardManager(enable_logger=False, board_id=board, serial_number=serial_number)
     board_manager.connect()
     # set session for the data
     # We set a session id for the current interaction with the API (even if we fail to get the board, it will be important to store the failure)
@@ -637,14 +656,15 @@ async def _acquire_send_raw(user_id, date, board, stream_duration, buffer_durati
       "session_date": date
     }
     if validate_metadata(session_metadata, "sessionSchema"):        
-        session_id = set_session(metadata={**session_metadata, **board_manager.metadata})
+        session_id = set_session(metadata={**session_metadata, **board_manager.metadata}, user_id=user_id)
         board_manager.metadata['session_id'] = session_id # add session to the data for reference
 
         # stream_duration sec, buffer_duration sec
         await board_manager.data_acquisition_loop(
             stream_duration=stream_duration, 
             buffer_duration=buffer_duration, 
-            service=upload_data
+            service=upload_data,
+            user_id=user_id
         )
 
         return session_id
@@ -694,7 +714,7 @@ def send_file(user_id, date, edf_file, ch_nrs=None, ch_names=None):
           "session_date": header['startdate'].strftime("%m/%d/%Y, %H:%M:%S")
         }
         if validate_metadata(session_metadata, "sessionSchema"):
-            session_id = set_session(metadata={**session_metadata})
+            session_id = set_session(metadata={**session_metadata}, user_id=user_id)
             metadata = {'session_id':session_id, **session_metadata, **convert_datetime_in_dict(header), **convert_datetime_in_dict(signal_headers[0])}
 
             chunks = ((signals.size * signals.itemsize)//300000)+1
@@ -705,7 +725,7 @@ def send_file(user_id, date, edf_file, ch_nrs=None, ch_names=None):
             print("%d total bytes will be sent into %d chunks of %d bytes" % (signals.size * signals.itemsize, chunks, size_in_bytes))
 
             for timestamps_chunk,signals_chunk in zip(timestamps_chunks, signals_chunks):
-                upload_data(metadata, timestamps_chunk.tolist(), signals_chunk.tolist(), [], [])
+                upload_data(metadata, timestamps_chunk.tolist(), user_id, signals_chunk.tolist(), [], [])
 
             return session_id
         else:
@@ -718,7 +738,7 @@ def send_file(user_id, date, edf_file, ch_nrs=None, ch_names=None):
 
 ######################################################
 ######################################################
-def set_pipe(metadata, pipeline, params):
+def set_pipe(metadata, pipeline, params, user_id):
     """
     Configures and initiates a data processing pipeline for a session on the server.
 
@@ -732,6 +752,7 @@ def set_pipe(metadata, pipeline, params):
     **pipeline** (*str*): The identifier for the processing pipeline to be used.      
     **params** (*dict*): Parameters specific to the processing pipeline, detailing how data should
                    be processed.      
+    **user_id** (*str*): The user id (obtained through free registration with HABS)
 
     Returns:       
         *str* or *None*: The session ID if the session is successfully created, or None if the operation fails.
@@ -762,8 +783,9 @@ def set_pipe(metadata, pipeline, params):
     response = requests.post(
         url,
         data=encrypt_message(_session, aes_key_bytes),
-        headers={'Content-Type': 'application/octet-stream'}
+        headers={'Content-Type': 'application/octet-stream', 'X-User-ID':user_id}
     )
+    # response = requests.get(url, headers={'X-User-ID':USERID}) # mongo _id for the user document. Communicated at user creation.
 
     if response.status_code == 200:
         print("Session successfully created.")
@@ -777,7 +799,7 @@ def set_pipe(metadata, pipeline, params):
 
 
 ######################################################
-def upload_pipedata(metadata, timestamps, data, ppg_red, ppg_ir):
+def upload_pipedata(metadata, timestamps, user_id, data, ppg_red, ppg_ir):
     """
     Uploads processed data to a specific session on the server.
 
@@ -788,6 +810,7 @@ def upload_pipedata(metadata, timestamps, data, ppg_red, ppg_ir):
     Args:        
     **metadata** (*dict*): Contains session-related metadata including the session ID.      
     **timestamps** (*list*): A list of timestamps corresponding to each data point.      
+    **user_id** (*str*): The user id (obtained through free registration with HABS)
     **data** (*list*): The main data collected, e.g., EEG readings.      
     **ppg_red** (*list*): Red channel data from a PPG sensor.    
     **ppg_ir** (*list*): Infrared channel data from a PPG sensor.     
@@ -828,7 +851,7 @@ def upload_pipedata(metadata, timestamps, data, ppg_red, ppg_ir):
     response = requests.post(
         url,
         data=encrypt_message(_data, aes_key_bytes),
-        headers={'Content-Type': 'application/octet-stream'}
+        headers={'Content-Type': 'application/octet-stream', 'X-User-ID':user_id}
     )
 
     if response.status_code == 200:
@@ -844,7 +867,7 @@ def upload_pipedata(metadata, timestamps, data, ppg_red, ppg_ir):
 
 
 ######################################################
-def acquire_send_pipe(pipeline, params, user_id, date, board, stream_duration, buffer_duration, callback=None):
+def acquire_send_pipe(pipeline, params, user_id, date, board, serial_number, stream_duration, buffer_duration, callback=None):
     """
     Acquires data from a board, processes it according to a specified pipeline, and sends it to a server.
     This function handles setting up a session for data acquisition and processing, connects to a board, 
@@ -866,13 +889,13 @@ def acquire_send_pipe(pipeline, params, user_id, date, board, stream_duration, b
 
     """
     session_id = asyncio.run( 
-        _acquire_send_pipe(pipeline, params, user_id, date, board, stream_duration, buffer_duration, callback) 
+        _acquire_send_pipe(pipeline, params, user_id, date, board, serial_number, stream_duration, buffer_duration, callback) 
     )
     return session_id
 
-async def _acquire_send_pipe(pipeline, params, user_id, date, board, stream_duration, buffer_duration, callback=None):
+async def _acquire_send_pipe(pipeline, params, user_id, date, board, serial_number, stream_duration, buffer_duration, callback=None):
     # get board
-    board_manager = BoardManager(enable_logger=False, board_id=board)
+    board_manager = BoardManager(enable_logger=False, board_id=board, serial_number=serial_number)
     board_manager.connect()
 
     # set session for the data
@@ -882,7 +905,7 @@ async def _acquire_send_pipe(pipeline, params, user_id, date, board, stream_dura
       "session_date": date
     }
     if validate_metadata(session_metadata, "sessionSchema"):
-        session_id = set_pipe(metadata={**session_metadata, **board_manager.metadata}, pipeline=pipeline, params=params)
+        session_id = set_pipe(metadata={**session_metadata, **board_manager.metadata}, pipeline=pipeline, params=params, user_id=user_id)
         board_manager.metadata['session_id'] = session_id # add session to the data for reference
 
         # stream_duration sec, buffer_duration sec
@@ -890,6 +913,7 @@ async def _acquire_send_pipe(pipeline, params, user_id, date, board, stream_dura
             stream_duration=stream_duration, 
             buffer_duration=buffer_duration, 
             service=upload_pipedata,
+            user_id=user_id,
             callback=callback
         )
 
@@ -899,13 +923,14 @@ async def _acquire_send_pipe(pipeline, params, user_id, date, board, stream_dura
 
 
 ######################################################
-def train(session_id, params):
+def train(session_id, params, user_id):
     """
     Sends a request to the server to train a machine learning algorithm on the data from a specified session.
 
     Args:     
     **session_id** (*str*): The unique identifier of the session containing the data to be used for training.       
     **params** (*dict*): The parameters for the training process.
+    **user_id** (*str*): The user id (obtained through free registration with HABS)
 
     Returns:      
         *str* or *None*: The task ID if the request is successful, None otherwise.
@@ -928,8 +953,9 @@ def train(session_id, params):
     response = requests.post(
         url,
         data=encrypt_message(_params, aes_key_bytes),
-        headers={'Content-Type': 'application/octet-stream'}
+        headers={'Content-Type': 'application/octet-stream', 'X-User-ID':user_id}
     )
+    # response = requests.get(url, headers={'X-User-ID':USERID}) # mongo _id for the user document. Communicated at user creation.
 
     if response.status_code == 200:
         task_id = response.json().get('task_id')
@@ -941,13 +967,14 @@ def train(session_id, params):
 
 
 ######################################################
-def infer(data_id, params):
+def infer(data_id, params, user_id):
     """
     Sends a request to the server to perform machine learning inference based on a previously trained model, given the data ID.
 
     Args:     
     **data_id** (*str*): The unique identifier of the data to be used for inference.      
     **params** (*dict*): The parameters for the inference process.
+    **user_id** (*str*): The user id (obtained through free registration with HABS)
 
     Returns:
     *str* or *None*: The task ID if the request is successful, None otherwise.
@@ -971,8 +998,9 @@ def infer(data_id, params):
     response = requests.post(
         url,
         data=encrypt_message(_params, aes_key_bytes),
-        headers={'Content-Type': 'application/octet-stream'}
+        headers={'Content-Type': 'application/octet-stream', 'X-User-ID':user_id}
     )
+    # response = requests.get(url, headers={}) # mongo _id for the user document. Communicated at user creation.
     
     if response.status_code == 200:
         task_id = response.json().get('task_id')

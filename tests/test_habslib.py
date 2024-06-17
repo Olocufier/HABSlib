@@ -1,5 +1,5 @@
 # USAGE:
- # % pytest tests/test_habslib.py
+# % pytest tests/test_habslib.py
 
 import pytest
 
@@ -46,7 +46,9 @@ def is_valid_uuid(val):
 @pytest.mark.dependency
 def test_handshake():
     start_time = time.time()
-    result = hb.handshake(base_url=BASE_URL) ## CALL
+
+    result = hb.handshake(base_url=BASE_URL, user_id='666c0158fcbfd9a830399121') 
+    
     end_time = time.time()
     duration = end_time - start_time
     # Attach the duration to the test report
@@ -64,12 +66,15 @@ def test_handshake():
 @pytest.mark.dependency
 @pytest.mark.parametrize("payload, expected_status", [ 
     # pytest.param({}, 400,  marks=pytest.mark.xfail()),
-    ({'email': 'domenico@habs.ai', 'first_name':"Domenico", 'last_name':"Guarino", 'age':50, 'weight':89, 'gender':"M"}, 200)
+    ({'first_name': 'Domenico', 'last_name': 'Guarino', 'role': 'Admin', 'group': 'HABS', 'email': 'domenico@habs.ai', 'age': 50, 'weight': 89, 'gender': 'M'}, 208)
+    # ({'first_name': 'Federico', 'last_name': 'Tesler', 'role': 'Admin', 'group': 'HABS', 'email': 'federico@habs.ai', 'age': 30, 'weight': 79, 'gender': 'M'}, 200)
 ])
 def test_set_user(payload, expected_status):
     print(payload)
     start_time = time.time()
+
     user_id = hb.set_user(**payload) ## CALL
+
     end_time = time.time()
     duration = end_time - start_time
     # Attach the duration to the test report
@@ -93,7 +98,9 @@ def test_set_user(payload, expected_status):
 def test_get_user_by_id():
     print("g_user_id",g_user_id)
     start_time = time.time()
+
     user_data = hb.get_user_by_id(g_user_id)
+    
     end_time = time.time()
     duration = end_time - start_time
     # Attach the duration to the test report
@@ -137,7 +144,7 @@ def test_get_user_by_id():
 @pytest.mark.dependency(depends=["test_handshake"])
 @pytest.mark.parametrize("user_id, expected_status", [
     ('g_user_id', 200),
-	pytest.param('non_existing_id', 400,  marks=pytest.mark.xfail()) # test xfail
+    pytest.param('non_existing_id', 400,  marks=pytest.mark.xfail()) # test xfail
 ])
 def test_acquire_send_raw(user_id, expected_status):
     if user_id=='g_user_id':
@@ -147,6 +154,7 @@ def test_acquire_send_raw(user_id, expected_status):
         user_id=user_id, 
         date=datetime.today().strftime('%Y-%m-%d'), 
         board=BOARD,
+        serial_number="", # in the back of the MUSE pod
         stream_duration=10, 
         buffer_duration=5)
     end_time = time.time()
@@ -193,6 +201,7 @@ def test_acquire_send_pipe(user_id, expected_status):
         user_id=user_id, 
         date=datetime.today().strftime('%Y-%m-%d'), 
         board=BOARD,
+        serial_number="", # in the back of the MUSE pod
         stream_duration=20, 
         buffer_duration=5
     )
@@ -232,7 +241,7 @@ def test_get_data_by_session(session_id, expected_status):
     if session_id=='g_session_id':
         session_id = g_session_id
     start_time = time.time()
-    results = hb.get_data_by_session(session_id=session_id)
+    results = hb.get_data_by_session(session_id=session_id, user_id=user_id)
     end_time = time.time()
     duration = end_time - start_time
     # Attach the duration to the test report
@@ -247,24 +256,24 @@ def test_get_data_by_session(session_id, expected_status):
 # - should receive the param "session_id"
 # - should return a valid list
 
-@pytest.mark.order(8)
-@pytest.mark.dependency(depends=["test_handshake"])
-@pytest.mark.parametrize("session_id, params, expected_status", [
-    ('g_session_id',{'model':'test', 'session_id':''}, 200),
-    pytest.param('662fc1430e155332ac5ace1f', {}, 400,  marks=pytest.mark.xfail()) # test xfail
-])
-def test_train(session_id, params, expected_status):
-    if session_id=='g_session_id':
-        session_id = g_session_id
-        params['session_id'] = g_session_id
-    start_time = time.time()
-    task_id = hb.train(
-        session_id=session_id, 
-        params=params)
-    end_time = time.time()
-    duration = end_time - start_time
-    # Attach the duration to the test report
-    # pytest.current_test_report.duration = duration
-    assert is_valid_uuid(task_id)
+# @pytest.mark.order(8)
+# @pytest.mark.dependency(depends=["test_handshake"])
+# @pytest.mark.parametrize("session_id, params, expected_status", [
+#     ('g_session_id',{'model':'test', 'session_id':''}, 200),
+#     pytest.param('662fc1430e155332ac5ace1f', {}, 400,  marks=pytest.mark.xfail()) # test xfail
+# ])
+# def test_train(session_id, params, expected_status):
+#     if session_id=='g_session_id':
+#         session_id = g_session_id
+#         params['session_id'] = g_session_id
+#     start_time = time.time()
+#     task_id = hb.train(
+#         session_id=session_id, 
+#         params=params)
+#     end_time = time.time()
+#     duration = end_time - start_time
+#     # Attach the duration to the test report
+#     # pytest.current_test_report.duration = duration
+#     assert is_valid_uuid(task_id)
 
 

@@ -41,6 +41,12 @@
       "last_name": {
         "type": "string"
       },
+      "role": {
+        "type": "string"
+      },
+      "group": {
+        "type": "string"
+      },
       "email": {
         "type": "string",
         "format": "email"
@@ -55,7 +61,7 @@
         "type": "string"
       }
     },
-    "required": ["email"]
+    "required": ["role","email"]
   }
 
 
