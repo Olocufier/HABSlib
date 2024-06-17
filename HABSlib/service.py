@@ -271,7 +271,7 @@ def set_user(user_id, first_name=None, last_name=None, role=None, group=None, em
             headers={'Content-Type': 'application/octet-stream', 'X-User-ID':user_id}
         )
 
-        if response.status_code == 200:
+        if response.status_code == 201 or response.status_code == 208:
             print("User successfully created/retrieved.")
             user_id = response.json().get('user_id')
             return user_id
