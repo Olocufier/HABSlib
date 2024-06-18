@@ -900,10 +900,10 @@ def acquire_send_pipe(pipeline, params, user_id, date, board, serial_number, str
     print("\nSession initialized. You can visualize it here:\n ","https://habs.ai/live.html?session_id="+str(session_id), "\n")
 
     if validate_metadata(session_metadata, "sessionSchema"):
-        outcome = asyncio.run( 
+        asyncio.run( 
             _acquire_send_pipe(pipeline, params, user_id, session_id, board, serial_number, stream_duration, buffer_duration, callback) 
         )
-        return outcome
+        return session_id
     else:
         print("Session initialization failed.")
         return False
