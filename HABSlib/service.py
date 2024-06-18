@@ -890,38 +890,40 @@ def acquire_send_pipe(pipeline, params, user_id, date, board, serial_number, str
         *str* or *bool*: The session ID if successful, False otherwise.
 
     """
-    session_id = asyncio.run( 
-        _acquire_send_pipe(pipeline, params, user_id, date, board, serial_number, stream_duration, buffer_duration, callback) 
-    )
-    return session_id
-
-async def _acquire_send_pipe(pipeline, params, user_id, date, board, serial_number, stream_duration, buffer_duration, callback=None):
-    # get board
-    board_manager = BoardManager(enable_logger=False, board_id=board, serial_number=serial_number)
-    board_manager.connect()
-
     # set session for the data
     # We set a session id for the current interaction with the API (even if we fail to get the board, it will be important to store the failure)
     session_metadata = {
       "user_id": user_id, # add user to the session for reference
       "session_date": date
     }
+    session_id = set_pipe(metadata={**session_metadata}, pipeline=pipeline, params=params, user_id=user_id)
+    print("\nSession initialized. You can visualize it here:\n ","https://habs.ai/live.html?session_id="+str(session_id), "\n")
+
     if validate_metadata(session_metadata, "sessionSchema"):
-        session_id = set_pipe(metadata={**session_metadata, **board_manager.metadata}, pipeline=pipeline, params=params, user_id=user_id)
-        board_manager.metadata['session_id'] = session_id # add session to the data for reference
-
-        # stream_duration sec, buffer_duration sec
-        await board_manager.data_acquisition_loop(
-            stream_duration=stream_duration, 
-            buffer_duration=buffer_duration, 
-            service=upload_pipedata,
-            user_id=user_id,
-            callback=callback
+        outcome = asyncio.run( 
+            _acquire_send_pipe(pipeline, params, user_id, session_id, board, serial_number, stream_duration, buffer_duration, callback) 
         )
-
-        return session_id
+        return outcome
     else:
+        print("Session initialization failed.")
         return False
+
+# async appendage
+async def _acquire_send_pipe(pipeline, params, user_id, session_id, board, serial_number, stream_duration, buffer_duration, callback=None):
+    # get board
+    board_manager = BoardManager(enable_logger=False, board_id=board, serial_number=serial_number)
+    board_manager.connect()
+
+    board_manager.metadata['session_id'] = session_id # add session to the data for reference
+
+    # stream_duration sec, buffer_duration sec
+    await board_manager.data_acquisition_loop(
+        stream_duration=stream_duration, 
+        buffer_duration=buffer_duration, 
+        service=upload_pipedata,
+        user_id=user_id,
+        callback=callback
+    )
 
 
 ######################################################
