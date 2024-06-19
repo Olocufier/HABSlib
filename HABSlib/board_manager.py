@@ -39,13 +39,15 @@ class SingletonMeta(type):
 
 class BoardManager(metaclass=SingletonMeta):
 
-    def __init__(self, enable_logger, board_id="SYNTHETIC", serial_number="MuseS-88D1"):
+    def __init__( self, enable_logger, board_id="SYNTHETIC", serial_number="MuseS-88D1", extra=None ):
         if not hasattr(self, 'initialized'):  # Prevent re-initialization
             self.board = None
             self.preset = None
             self.board_descr = None
+            self.extra_board = None
             self.params = BrainFlowInputParams()
 
+            # Board Id
             if board_id == "MUSE_2":
                 self.board_id = BoardIds.MUSE_2_BOARD
             elif board_id == "MUSE_S":
@@ -53,7 +55,9 @@ class BoardManager(metaclass=SingletonMeta):
                 self.preset = BrainFlowPresets.ANCILLARY_PRESET
             else:
                 self.board_id = BoardIds.SYNTHETIC_BOARD
+                self.extra_board = extra # Extra Board parameters
 
+            # Serial Number
             self.params.serial_number = serial_number
             if self.board_id == BoardIds.SYNTHETIC_BOARD:
                 self.params.serial_number = ""
@@ -77,7 +81,7 @@ class BoardManager(metaclass=SingletonMeta):
                 self.board = BoardShim(self.board_id, self.params)
                 self.board.prepare_session()
                 self.board_descr = BoardShim.get_board_descr(self.board_id)
-                self.board.config_board("p52") #or p50 - both give the same result for some reason - need further exploration.
+                self.board.config_board("p52") # or p50 - both give the same result for some reason - need further exploration.
 
                 self.eeg_channels = self.board.get_eeg_channels(self.board_id)
                 self.sampling_rate = self.board.get_sampling_rate(self.board_id)
@@ -147,25 +151,32 @@ class BoardManager(metaclass=SingletonMeta):
 
                 data = self.board.get_current_board_data(buffer_size_samples) 
 
-                eeg_data =   data[self.eeg_channels, :]
-                timestamps = data[self.timestamp_channel, :]
-                ppg_ir = np.array([])
-                ppg_red = np.array([])
-                
-                # Board-dependent data
-                if self.board_id == BoardIds.MUSE_S_BOARD.value:
-                    ppg_ir = data[ self.ppg_channels[1] ]
-                    ppg_red = data[ self.ppg_channels[0] ] 
-                    if len(ppg_red)>1024 and len(ppg_ir)>1024: # minimum required for functions
-                        oxygen_level = DataFilter.get_oxygen_level(ppg_ir, ppg_red, self.sampling_rate)
-                        # print("oxygen_level: ", oxygen_level)
-                        heart_rate = DataFilter.get_heart_rate(ppg_ir, ppg_red, self.sampling_rate, 1024) 
-                        # print("heart_rate:",heart_rate)
+                # Start processing only when the buffer is full
+                if data.shape[1] >= buffer_size_samples: 
 
-                if data.shape[1] >= buffer_size_samples: # Start processing only when the buffer is full
+                    # for extra board params
+                    if self.board_id is BoardIds.SYNTHETIC_BOARD and self.extra_board is not None:
+                        extra_data = self.generate_dummy_eeg_data(self.extra_board, buffer_duration)
+                        data[:extra_data.shape[0], :] = extra_data
+
+                    eeg_data =   data[self.eeg_channels, :]
+                    timestamps = data[self.timestamp_channel, :]
+                    ppg_ir = np.array([])
+                    ppg_red = np.array([])
+
                     t_current = timestamps[0]
                     if t_ref is None:
                         t_ref = timestamps[0]
+
+                    # Board-dependent data
+                    if self.board_id == BoardIds.MUSE_S_BOARD.value:
+                        ppg_ir = data[ self.ppg_channels[1] ]
+                        ppg_red = data[ self.ppg_channels[0] ] 
+                        # if len(ppg_red)>1024 and len(ppg_ir)>1024: # minimum required for functions
+                        #     oxygen_level = DataFilter.get_oxygen_level(ppg_ir, ppg_red, self.sampling_rate)
+                        #     # print("oxygen_level: ", oxygen_level)
+                        #     heart_rate = DataFilter.get_heart_rate(ppg_ir, ppg_red, self.sampling_rate, 1024) 
+                        #     # print("heart_rate:",heart_rate)
 
                     if t_current >= t_ref + buffer_duration:
                         data_id, proc_data = service(
@@ -190,3 +201,92 @@ class BoardManager(metaclass=SingletonMeta):
             
         finally:
             self.stop_streaming()
+
+
+    def generate_dummy_eeg_data(self, params, buffer_duration):
+        # Extract parameters from JSON dictionary
+        num_channels = params.get("eeg_channels", 8)
+        samples_per_second = params.get("sampling_rate", 256)
+        epoch_period = buffer_duration
+        noise_level = params.get("noise", 1)
+        artifact_prob = params.get("artifacts", 0.01)
+        modulation_type = params.get("modulation_type", 'sinusoidal')
+        preset = params.get("preset", None)
+        sequence = params.get("sequence", None)
+        correlation_strength = params.get("correlation_strength", 0.5)  # Strength of correlation between nearby channels
+
+        # Preset amplitude settings
+        preset_settings = {
+            #           del  the  alp  bet  gam
+            'focus':   [0.1, 0.1, 0.5, 0.8, 0.4],
+            'alert':   [0.1, 0.1, 0.4, 0.9, 0.3],
+            'relaxed': [0.2, 0.2, 0.7, 0.3, 0.2],
+            'drowsy':  [0.4, 0.6, 0.2, 0.2, 0.1],
+        }
+
+        if preset in preset_settings:
+            delta_amp, theta_amp, alpha_amp, beta_amp, gamma_amp = preset_settings[preset]
+        else:
+            delta_amp = params.get("delta_amp", 0)
+            theta_amp = params.get("theta_amp", 0)
+            alpha_amp = params.get("alpha_amp", 0)
+            beta_amp = params.get("beta_amp", 0)
+            gamma_amp = params.get("gamma_amp", 0)
+        
+        total_samples = samples_per_second * epoch_period
+        t = np.linspace(0, epoch_period, total_samples, endpoint=False)
+        eeg_data = np.zeros((num_channels, total_samples))
+
+        # managing the type of eeg modulation
+        if modulation_type == 'sinusoidal':
+            modulating_freq = 0.1  # frequency of the amplitude modulation
+            delta_mod = (1 + np.sin(2 * np.pi * modulating_freq * t)) / 2  # between 0.5 and 1.5
+            theta_mod = (1 + np.cos(2 * np.pi * modulating_freq * t)) / 2
+            alpha_mod = (1 + np.sin(2 * np.pi * modulating_freq * t + np.pi / 4)) / 2
+            beta_mod = (1 + np.cos(2 * np.pi * modulating_freq * t + np.pi / 4)) / 2
+            gamma_mod = (1 + np.sin(2 * np.pi * modulating_freq * t + np.pi / 2)) / 2
+        elif modulation_type == 'random':
+            delta_mod = np.abs(np.random.randn(total_samples))
+            theta_mod = np.abs(np.random.randn(total_samples))
+            alpha_mod = np.abs(np.random.randn(total_samples))
+            beta_mod = np.abs(np.random.randn(total_samples))
+            gamma_mod = np.abs(np.random.randn(total_samples))
+        
+        for channel in range(num_channels):
+            # Adding random noise
+            eeg_data[channel] += noise_level * np.random.randn(total_samples)
+            
+            # Adding time-varying components for each wave type
+            if delta_amp > 0:
+                eeg_data[channel] += delta_amp * delta_mod * np.sin(2 * np.pi * np.random.uniform(1, 4) * t)
+            if theta_amp > 0:
+                eeg_data[channel] += theta_amp * theta_mod * np.sin(2 * np.pi * np.random.uniform(4, 8) * t)
+            if alpha_amp > 0:
+                eeg_data[channel] += alpha_amp * alpha_mod * np.sin(2 * np.pi * np.random.uniform(8, 13) * t)
+            if beta_amp > 0:
+                eeg_data[channel] += beta_amp * beta_mod * np.sin(2 * np.pi * np.random.uniform(13, 30) * t)
+            if gamma_amp > 0:
+                eeg_data[channel] += gamma_amp * gamma_mod * np.sin(2 * np.pi * np.random.uniform(30, 100) * t)
+            
+        # Introducing correlation between nearby channels
+        for channel in range(1, num_channels):
+            eeg_data[channel] += correlation_strength * eeg_data[channel - 1]
+        # Introducing artifacts as random peaks
+        artifact_indices = np.random.choice(total_samples, int(artifact_prob * total_samples), replace=False)
+        for channel in range(0, num_channels):
+            eeg_data[channel, artifact_indices] -= np.random.uniform(10, 20, len(artifact_indices))
+
+        # Handle sequence if provided
+        if sequence:
+            full_data = []
+            for seq in sequence:
+                preset, duration = seq
+                temp_params = params.copy()
+                temp_params['preset'] = preset
+                temp_params['epoch_period'] = duration
+                temp_params['sequence'] = None
+                segment = generate_dummy_eeg_data(temp_params)
+                full_data.append(segment)
+            eeg_data = np.hstack(full_data)
+        
+        return eeg_data

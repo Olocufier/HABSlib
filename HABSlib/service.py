@@ -53,6 +53,7 @@ import time
 from datetime import datetime
 import uuid
 import asyncio
+import webbrowser
 
 from . import BASE_URL, VERSION
 from . import BoardManager
@@ -139,6 +140,27 @@ def convert_datetime_in_dict(data):
             data[key] = convert_datetime_in_dict(value)
     return data
 
+def head():
+    """
+    Every library should have a nice ASCII art :)
+    """
+    print()
+    print("     ---------------------------------------------------------------------------------- ")
+    print("     HHHHHH       HHHHHH        AAAAAAAAA        BBBBBBBBBBBBBB          SSSSSSSSSSS    ")
+    print("     HHHHHH       HHHHHH       AAAAAAAAAA        BBBBBBBBBBBBBBBBB    SSSSSSSSSSSSSSSS  ")
+    print("     HHHHHH       HHHHHH       AAAAAAAAAAA       BBBBBBBBBBBBBBBBBB   SSSSSS    SSSSSSS ")
+    print("     HHHHHH       HHHHHH      AAAAAA AAAAAA                  BBBBBB   SSSSS             ")
+    print("     HHHHHHHHHHHHHHHHHHH     AAAAAA  AAAAAAA     BBBBBBBBBBBBBBBB     SSSSSSSSSSSSSS    ")
+    print("     HHHHHHHHHHHHHHHHHHH     AAAAAA   AAAAAA     BBBBBBBBBBBBBBBBB       SSSSSSSSSSSSSS ")
+    print("     HHHHHH       HHHHHH    AAAAAA     AAAAAA    BBBBB       BBBBBB              SSSSSS ")
+    print("     HHHHHH       HHHHHH   AAAAAA       AAAAAA   BBBBBBBBBBBBBBBBBB  SSSSSSS    SSSSSSS ")
+    print("     HHHHHH       HHHHHH  AAAAAAA       AAAAAA   BBBBBBBBBBBBBBBBBB   SSSSSSSSSSSSSSSS  ")
+    print("     HHHHHH       HHHHHH  AAAAAA         AAAAAA  BBBBBBBBBBBBBB         SSSSSSSSSSSS    ")
+    print("     ---------------------------------------------------------------------------------- ")
+    print("            HUMAN               AUGMENTED              BRAIN               SYSTEMS      ")
+    print()
+    print()
+
 
 ######################################################
 def handshake(base_url, user_id):  
@@ -172,6 +194,7 @@ def handshake(base_url, user_id):
         print("Handshake failed.")
     ```
     """
+    head()
     global BASE_URL
     BASE_URL = base_url
     url = f"{BASE_URL}/api/{VERSION}/handshake_rsa"
@@ -612,7 +635,7 @@ def upload_data(metadata, timestamps, user_id, data, ppg_red, ppg_ir):
 
 
 ######################################################
-def acquire_send_raw(user_id, date, board, serial_number, stream_duration, buffer_duration):
+def acquire_send_raw(user_id, date, board, serial_number, stream_duration, buffer_duration, callback=None, extra=None):
     """
     Asynchronously acquires raw data from a specific EEG board and sends it to the server.
 
@@ -644,34 +667,41 @@ def acquire_send_raw(user_id, date, board, serial_number, stream_duration, buffe
         print("Failed to start session")
     ```
     """
-    session_id = asyncio.run( _acquire_send_raw(user_id, date, board, serial_number, stream_duration, buffer_duration) )
-    return session_id
-
-async def _acquire_send_raw(user_id, date, board, serial_number, stream_duration, buffer_duration):
-    # get board
-    board_manager = BoardManager(enable_logger=False, board_id=board, serial_number=serial_number)
-    board_manager.connect()
     # set session for the data
     # We set a session id for the current interaction with the API (even if we fail to get the board, it will be important to store the failure)
     session_metadata = {
       "user_id": user_id, # add user to the session for reference
       "session_date": date
     }
-    if validate_metadata(session_metadata, "sessionSchema"):        
-        session_id = set_session(metadata={**session_metadata, **board_manager.metadata}, user_id=user_id)
-        board_manager.metadata['session_id'] = session_id # add session to the data for reference
+    session_id = set_session(metadata={**session_metadata}, user_id=user_id)
+    print("\nSession initialized. You can visualize it here:\n ", "https://habs.ai/live.html?session_id="+str(session_id), "\n")
 
-        # stream_duration sec, buffer_duration sec
-        await board_manager.data_acquisition_loop(
-            stream_duration=stream_duration, 
-            buffer_duration=buffer_duration, 
-            service=upload_data,
-            user_id=user_id
+    if validate_metadata(session_metadata, "sessionSchema"):
+        asyncio.run( 
+            _acquire_send_raw(user_id, session_id, board, serial_number, stream_duration, buffer_duration, callback, extra) 
         )
-
         return session_id
     else:
+        print("Session initialization failed.")
         return False
+
+# async appendage
+async def _acquire_send_raw(user_id, session_id, board, serial_number, stream_duration, buffer_duration, callback=None, extra=None):
+    # get board
+    board_manager = BoardManager(enable_logger=False, board_id=board, serial_number=serial_number, extra=extra)
+    board_manager.connect()
+
+    board_manager.metadata['session_id'] = session_id # add session to the data for reference
+
+    # stream_duration sec, buffer_duration sec
+    await board_manager.data_acquisition_loop(
+        stream_duration=stream_duration, 
+        buffer_duration=buffer_duration, 
+        service=upload_data,
+        user_id=user_id,
+        callback=callback
+    )
+
 
 
 
@@ -869,7 +899,7 @@ def upload_pipedata(metadata, timestamps, user_id, data, ppg_red, ppg_ir):
 
 
 ######################################################
-def acquire_send_pipe(pipeline, params, user_id, date, board, serial_number, stream_duration, buffer_duration, callback=None):
+def acquire_send_pipe(pipeline, params, user_id, date, board, serial_number, stream_duration, buffer_duration, callback=None, extra=None):
     """
     Acquires data from a board, processes it according to a specified pipeline, and sends it to a server.
     This function handles setting up a session for data acquisition and processing, connects to a board, 
@@ -897,11 +927,11 @@ def acquire_send_pipe(pipeline, params, user_id, date, board, serial_number, str
       "session_date": date
     }
     session_id = set_pipe(metadata={**session_metadata}, pipeline=pipeline, params=params, user_id=user_id)
-    print("\nSession initialized. You can visualize it here:\n ","https://habs.ai/live.html?session_id="+str(session_id), "\n")
+    print("\nSession initialized. You can visualize it here:\n ", "https://habs.ai/live.html?session_id="+str(session_id), "\n")
 
     if validate_metadata(session_metadata, "sessionSchema"):
         asyncio.run( 
-            _acquire_send_pipe(pipeline, params, user_id, session_id, board, serial_number, stream_duration, buffer_duration, callback) 
+            _acquire_send_pipe(pipeline, params, user_id, session_id, board, serial_number, stream_duration, buffer_duration, callback, extra) 
         )
         return session_id
     else:
@@ -909,9 +939,9 @@ def acquire_send_pipe(pipeline, params, user_id, date, board, serial_number, str
         return False
 
 # async appendage
-async def _acquire_send_pipe(pipeline, params, user_id, session_id, board, serial_number, stream_duration, buffer_duration, callback=None):
+async def _acquire_send_pipe(pipeline, params, user_id, session_id, board, serial_number, stream_duration, buffer_duration, callback=None, extra=None):
     # get board
-    board_manager = BoardManager(enable_logger=False, board_id=board, serial_number=serial_number)
+    board_manager = BoardManager(enable_logger=False, board_id=board, serial_number=serial_number, extra=extra)
     board_manager.connect()
 
     board_manager.metadata['session_id'] = session_id # add session to the data for reference
