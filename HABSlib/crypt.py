@@ -43,7 +43,6 @@ def encrypt_aes_key_with_rsa(aes_key, public_key):
             label=None
         )
     )
-    # return base64.b64encode(encrypted_key).decode('utf-8')
     return encrypted_key
 
 
@@ -67,6 +66,7 @@ def load_public_key(env_name='SERVER_PUBLIC_KEY'):
 
 
 
+# def generate_aes_key(length=32):  # AES key for AES-256
 def generate_aes_key(length=16):  # AES key for AES-256
     return os.urandom(length)
 
@@ -74,6 +74,7 @@ def generate_aes_key(length=16):  # AES key for AES-256
 
 def pad_message(message):
     padder = padding.PKCS7(128).padder()  # 128 bit = 16 bytes block size
+    # padder = padding.PKCS7(256).padder()  # 256 bit = 32 bytes block size
     padded_data = padder.update(message) + padder.finalize()
     return padded_data
 
@@ -81,6 +82,7 @@ def pad_message(message):
 
 def unpad_message(padded_message):
     unpadder = padding.PKCS7(128).unpadder()  # 128 bit = 16 bytes block size
+    # unpadder = padding.PKCS7(256).unpadder()  # 256 bit = 32 bytes block size
     data = unpadder.update(padded_message) + unpadder.finalize()
     return data
 

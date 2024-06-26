@@ -635,7 +635,7 @@ def upload_data(metadata, timestamps, user_id, data, ppg_red, ppg_ir):
 
 
 ######################################################
-def acquire_send_raw(user_id, date, board, serial_number, stream_duration, buffer_duration, callback=None, extra=None):
+def acquire_send_raw(user_id, date, board, serial_number, stream_duration, buffer_duration, session_type="", tags=[], callback=None, extra=None):
     """
     Asynchronously acquires raw data from a specific EEG board and sends it to the server.
 
@@ -671,7 +671,9 @@ def acquire_send_raw(user_id, date, board, serial_number, stream_duration, buffe
     # We set a session id for the current interaction with the API (even if we fail to get the board, it will be important to store the failure)
     session_metadata = {
       "user_id": user_id, # add user to the session for reference
-      "session_date": date
+      "session_date": date,
+      "session_type": session_type,
+      "session_tags": tags
     }
     session_id = set_session(metadata={**session_metadata}, user_id=user_id)
     print("\nSession initialized. You can visualize it here:\n ", "https://habs.ai/live.html?session_id="+str(session_id), "\n")
@@ -704,9 +706,8 @@ async def _acquire_send_raw(user_id, session_id, board, serial_number, stream_du
 
 
 
-
 ######################################################
-def send_file(user_id, date, edf_file, ch_nrs=None, ch_names=None):
+def send_file(user_id, date, edf_file, ch_nrs=None, ch_names=None, session_type="", tags=[]):
     """
     Uploads EEG data from a file to the server along with associated metadata.
 
@@ -743,7 +744,9 @@ def send_file(user_id, date, edf_file, ch_nrs=None, ch_names=None):
 
         session_metadata = {
           "user_id": user_id, # add user to the session for reference
-          "session_date": header['startdate'].strftime("%m/%d/%Y, %H:%M:%S")
+          "session_date": header['startdate'].strftime("%m/%d/%Y, %H:%M:%S"),
+          "session_type": session_type,
+          "session_tags": tags
         }
         if validate_metadata(session_metadata, "sessionSchema"):
             session_id = set_session(metadata={**session_metadata}, user_id=user_id)
@@ -830,6 +833,7 @@ def set_pipe(metadata, pipeline, params, user_id):
         return None
 
 
+
 ######################################################
 def upload_pipedata(metadata, timestamps, user_id, data, ppg_red, ppg_ir):
     """
@@ -899,7 +903,7 @@ def upload_pipedata(metadata, timestamps, user_id, data, ppg_red, ppg_ir):
 
 
 ######################################################
-def acquire_send_pipe(pipeline, params, user_id, date, board, serial_number, stream_duration, buffer_duration, callback=None, extra=None):
+def acquire_send_pipe(pipeline, params, user_id, date, board, serial_number, stream_duration, buffer_duration, session_type="", tags=[], callback=None, extra=None):
     """
     Acquires data from a board, processes it according to a specified pipeline, and sends it to a server.
     This function handles setting up a session for data acquisition and processing, connects to a board, 
@@ -924,7 +928,9 @@ def acquire_send_pipe(pipeline, params, user_id, date, board, serial_number, str
     # We set a session id for the current interaction with the API (even if we fail to get the board, it will be important to store the failure)
     session_metadata = {
       "user_id": user_id, # add user to the session for reference
-      "session_date": date
+      "session_date": date,
+      "session_type": session_type,
+      "session_tags": tags
     }
     session_id = set_pipe(metadata={**session_metadata}, pipeline=pipeline, params=params, user_id=user_id)
     print("\nSession initialized. You can visualize it here:\n ", "https://habs.ai/live.html?session_id="+str(session_id), "\n")

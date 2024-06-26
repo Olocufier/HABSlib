@@ -13,20 +13,19 @@
         "type": "string",
         "format": "date"
       },
-      "karolinska_sleep_score": {
-        "type": "integer"
+      "session_type": {
+        "description": "Type of the session",
+        "type": "string"
       },
-      "hours_awake": {
-        "type": "integer"
-      },
-      "duration_of_last_sleep": {
-        "type": "integer"
+      "session_tags": {
+        "description": "Tags for the session, they can be many",
+        "type": "array"
       },
       "additional_notes": {
         "type": "string"
       }
     },
-    "required": ["user_id", "session_date"]
+    "required": ["user_id", "session_date", "session_type"]
   },
 
 
@@ -59,7 +58,11 @@
       },
       "gender": {
         "type": "string"
-      }
+      },
+      "devices": {
+        "description": "List of owned devices' serial_numbers",
+        "type": "array"
+      },
     },
     "required": ["role","email"]
   }
