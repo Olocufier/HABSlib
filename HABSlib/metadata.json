@@ -62,7 +62,7 @@
       "devices": {
         "description": "List of owned devices' serial_numbers",
         "type": "array"
-      },
+      }
     },
     "required": ["role","email"]
   }
