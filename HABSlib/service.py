@@ -964,7 +964,7 @@ async def _acquire_send_pipe(pipeline, params, user_id, session_id, board, seria
 
 
 
-######################################################
+# ######################################################
 def get_user_database(user_id):
     """
     Retrieve all user data by user ID.
@@ -989,14 +989,22 @@ def get_user_database(user_id):
     """
     url = f"{BASE_URL}/api/{VERSION}/database/dump/{user_id}"
 
-    response = requests.get(url, headers={'X-User-ID':user_id}) # mongo _id for the user document. Communicated at user creation.
+    response = requests.get(url, headers={'X-User-ID': user_id}, stream=True)
 
     if response.status_code == 200:
-        print("Data is downloading...")
+        # Open a local file with write-binary mode
+        strtime = datetime.today().strftime("%Y%m%d_%H%M%S")
+
+        with open(f"brainos_{strtime}_dump.zip", 'wb') as file:
+            # Write the response content to the file in chunks
+            for chunk in response.iter_content(chunk_size=8192):
+                file.write(chunk)
+        print("Database dump saved successfully.")
         return True
     else:
         print("User not found:", response.text)
         return None
+
 
 
 
