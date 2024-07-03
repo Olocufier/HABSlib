@@ -962,6 +962,44 @@ async def _acquire_send_pipe(pipeline, params, user_id, session_id, board, seria
     )
 
 
+
+
+######################################################
+def get_user_database(user_id):
+    """
+    Retrieve all user data by user ID.
+
+    This function sends a GET request to the server to dump all data stored for the specified user ID.     
+    The response data is decrypted using AES before returning the user data.
+
+    Args:     
+        **user_id** (*str*): The unique identifier of the user to retrieve.
+
+    Returns:     
+        *None*: A zip file contaning all data as JSON files, None otherwise.
+
+    Example:
+    ```
+    user_data = get_user_database("1234567890")
+    if user_data:
+        print(f"User data: {user_data}")
+    else:
+        print("User not found.")
+    ```
+    """
+    url = f"{BASE_URL}/api/{VERSION}/database/dump/{user_id}"
+
+    response = requests.get(url, headers={'X-User-ID':user_id}) # mongo _id for the user document. Communicated at user creation.
+
+    if response.status_code == 200:
+        print("Data is downloading...")
+        return True
+    else:
+        print("User not found:", response.text)
+        return None
+
+
+
 ######################################################
 def train(session_id, params, user_id):
     """
