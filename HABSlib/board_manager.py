@@ -214,6 +214,7 @@ class BoardManager(metaclass=SingletonMeta):
         preset = params.get("preset", None)
         sequence = params.get("sequence", None)
         correlation_strength = params.get("correlation_strength", 0.5)  # Strength of correlation between nearby channels
+        power_law_slope = params.get("power_law_slope", 1.0)
 
         # Preset amplitude settings
         preset_settings = {
@@ -227,17 +228,34 @@ class BoardManager(metaclass=SingletonMeta):
         if preset in preset_settings:
             delta_amp, theta_amp, alpha_amp, beta_amp, gamma_amp = preset_settings[preset]
         else:
-            delta_amp = params.get("delta_amp", 0)
-            theta_amp = params.get("theta_amp", 0)
-            alpha_amp = params.get("alpha_amp", 0)
-            beta_amp = params.get("beta_amp", 0)
-            gamma_amp = params.get("gamma_amp", 0)
+            delta_amp = params.get("delta_amp", 0.1)
+            theta_amp = params.get("theta_amp", 0.1)
+            alpha_amp = params.get("alpha_amp", 0.1)
+            beta_amp = params.get("beta_amp", 0.1)
+            gamma_amp = params.get("gamma_amp", 0.1)
         
         total_samples = samples_per_second * epoch_period
         t = np.linspace(0, epoch_period, total_samples, endpoint=False)
         eeg_data = np.zeros((num_channels, total_samples))
 
-        # managing the type of eeg modulation
+        # Frequency bands
+        bands = {
+            'Delta': (0.5, 4),
+            'Theta': (4, 8),
+            'Alpha': (8, 13),
+            'Beta': (13, 30),
+            'Gamma': (30, 100)
+        }
+
+        amplitudes = {
+            'Delta': delta_amp,
+            'Theta': theta_amp,
+            'Alpha': alpha_amp,
+            'Beta': beta_amp,
+            'Gamma': gamma_amp
+        }
+
+        # Managing the type of EEG modulation
         if modulation_type == 'sinusoidal':
             modulating_freq = 0.1  # frequency of the amplitude modulation
             delta_mod = (1 + np.sin(2 * np.pi * modulating_freq * t)) / 2  # between 0.5 and 1.5
@@ -252,25 +270,32 @@ class BoardManager(metaclass=SingletonMeta):
             beta_mod = np.abs(np.random.randn(total_samples))
             gamma_mod = np.abs(np.random.randn(total_samples))
         
-        for channel in range(num_channels):
-            # Adding random noise
-            eeg_data[channel] += noise_level * np.random.randn(total_samples)
-            
-            # Adding time-varying components for each wave type
-            if delta_amp > 0:
-                eeg_data[channel] += delta_amp * delta_mod * np.sin(2 * np.pi * np.random.uniform(1, 4) * t)
-            if theta_amp > 0:
-                eeg_data[channel] += theta_amp * theta_mod * np.sin(2 * np.pi * np.random.uniform(4, 8) * t)
-            if alpha_amp > 0:
-                eeg_data[channel] += alpha_amp * alpha_mod * np.sin(2 * np.pi * np.random.uniform(8, 13) * t)
-            if beta_amp > 0:
-                eeg_data[channel] += beta_amp * beta_mod * np.sin(2 * np.pi * np.random.uniform(13, 30) * t)
-            if gamma_amp > 0:
-                eeg_data[channel] += gamma_amp * gamma_mod * np.sin(2 * np.pi * np.random.uniform(30, 100) * t)
-            
+        for band, (low, high) in bands.items():
+            amplitude = amplitudes[band]
+            freqs = np.linspace(low, high, int(samples_per_second / 2))
+            power_law = freqs ** -power_law_slope
+
+            for i in range(num_channels):
+                for f, p in zip(freqs, power_law):
+                    phase = np.random.uniform(0, 2 * np.pi)
+                    if band == 'Delta':
+                        eeg_data[i] += amplitude * p * delta_mod * np.sin(2 * np.pi * f * t + phase)
+                    elif band == 'Theta':
+                        eeg_data[i] += amplitude * p * theta_mod * np.sin(2 * np.pi * f * t + phase)
+                    elif band == 'Alpha':
+                        eeg_data[i] += amplitude * p * alpha_mod * np.sin(2 * np.pi * f * t + phase)
+                    elif band == 'Beta':
+                        eeg_data[i] += amplitude * p * beta_mod * np.sin(2 * np.pi * f * t + phase)
+                    elif band == 'Gamma':
+                        eeg_data[i] += amplitude * p * gamma_mod * np.sin(2 * np.pi * f * t + phase)
+
+        # Adding random noise
+        eeg_data += noise_level * np.random.randn(num_channels, total_samples)
+
         # Introducing correlation between nearby channels
         for channel in range(1, num_channels):
             eeg_data[channel] += correlation_strength * eeg_data[channel - 1]
+
         # Introducing artifacts as random peaks
         artifact_indices = np.random.choice(total_samples, int(artifact_prob * total_samples), replace=False)
         for channel in range(0, num_channels):
@@ -288,5 +313,5 @@ class BoardManager(metaclass=SingletonMeta):
                 segment = generate_dummy_eeg_data(temp_params)
                 full_data.append(segment)
             eeg_data = np.hstack(full_data)
-        
+
         return eeg_data

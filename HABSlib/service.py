@@ -64,6 +64,8 @@ from . import store_public_key, load_public_key, generate_aes_key, encrypt_aes_k
 
 from pyedflib import highlevel
 
+from importlib.metadata import version
+
 
 ######################################################
 # validate the metadata against a specified schema
@@ -96,7 +98,7 @@ def validate_metadata(metadata, schema_name, schemafile='metadata.json'):
         print("Metadata is invalid.")
     ```
     """
-
+    print(metadata)
     try:
         with open(os.path.join(os.path.dirname(__file__), schemafile), 'r') as file:
             content = file.read()
@@ -143,22 +145,18 @@ def convert_datetime_in_dict(data):
 def head():
     """
     Every library should have a nice ASCII art :)
+    Propose yours, there is a prize for the best one!
     """
     print()
-    print("     ---------------------------------------------------------------------------------- ")
-    print("     HHHHHH       HHHHHH        AAAAAAAAA        BBBBBBBBBBBBBB          SSSSSSSSSSS    ")
-    print("     HHHHHH       HHHHHH       AAAAAAAAAA        BBBBBBBBBBBBBBBBB    SSSSSSSSSSSSSSSS  ")
-    print("     HHHHHH       HHHHHH       AAAAAAAAAAA       BBBBBBBBBBBBBBBBBB   SSSSSS    SSSSSSS ")
-    print("     HHHHHH       HHHHHH      AAAAAA AAAAAA                  BBBBBB   SSSSS             ")
-    print("     HHHHHHHHHHHHHHHHHHH     AAAAAA  AAAAAAA     BBBBBBBBBBBBBBBB     SSSSSSSSSSSSSS    ")
-    print("     HHHHHHHHHHHHHHHHHHH     AAAAAA   AAAAAA     BBBBBBBBBBBBBBBBB       SSSSSSSSSSSSSS ")
-    print("     HHHHHH       HHHHHH    AAAAAA     AAAAAA    BBBBB       BBBBBB              SSSSSS ")
-    print("     HHHHHH       HHHHHH   AAAAAA       AAAAAA   BBBBBBBBBBBBBBBBBB  SSSSSSS    SSSSSSS ")
-    print("     HHHHHH       HHHHHH  AAAAAAA       AAAAAA   BBBBBBBBBBBBBBBBBB   SSSSSSSSSSSSSSSS  ")
-    print("     HHHHHH       HHHHHH  AAAAAA         AAAAAA  BBBBBBBBBBBBBB         SSSSSSSSSSSS    ")
-    print("     ---------------------------------------------------------------------------------- ")
-    print("            HUMAN               AUGMENTED              BRAIN               SYSTEMS      ")
-    print()
+    print("       HUMAN        AUGMENTED        BRAIN         SYSTEMS     ")
+    print("   ----------------------------------------------------------- ")
+    print("   ▒▒▒▒     ▒▒▒▒     ░▒▒▒▒▒░     ▒▒▒▒▒▒▒▒▒▒▒▒░   ░▒▒▒▒▒▒▒▒▒░   ")
+    print("   ▒▒▒▒     ▒▒▒▒    ░▒▒▒▒▒▒▒░             ░▒▒▒▒ ░▒▒▒░     ░▒░  ")
+    print("   ▒▒▒▒▒▒▒▒▒▒▒▒▒   ░▒▒▒▒ ▒▒▒▒░   ▒▒▒▒▒▒▒▒▒▒▒▒▒   ░▒▒▒▒▒▒▒▒▒░   ")
+    print("   ▒▒▒▒     ▒▒▒▒  ░▒▒▒▒   ▒▒▒▒░  ▒▒▒▒     ░▒▒▒▒ ░▒░     ░▒▒▒░  ")
+    print("   ▒▒▒▒     ▒▒▒▒ ░▒▒▒▒     ▒▒▒▒░ ▒▒▒▒▒▒▒▒▒▒▒▒░   ░▒▒▒▒▒▒▒▒▒░   ")
+    print("   ----------------------------------------------------------- ")
+    print("   version:", version("HABSlib"))
     print()
 
 
@@ -281,7 +279,7 @@ def set_user(user_id, first_name=None, last_name=None, role=None, group=None, em
         "weight": weight, 
         "gender": gender
     }
-    if validate_metadata(user_data, "userSchema", ):
+    if validate_metadata(user_data, "userSchema"):
         _user = {
             "user_data": user_data
         }
@@ -964,7 +962,7 @@ async def _acquire_send_pipe(pipeline, params, user_id, session_id, board, seria
 
 
 
-# ######################################################
+######################################################
 def get_user_database(user_id):
     """
     Retrieve all user data by user ID.
@@ -1004,6 +1002,73 @@ def get_user_database(user_id):
     else:
         print("User not found:", response.text)
         return None
+
+
+
+
+######################################################
+def create_tagged_interval(user_id, session_id, eeg_data_id, start_time, end_time, tags, channel_ids=None):
+    """
+    Creates a tagged interval by sending the interval data to the server.
+
+    This function performs the following steps:
+    1. Constructs the interval data dictionary.
+    2. Validates the interval data against the "tagSchema".
+    3. Sends the interval data to the server.
+
+    Args:
+    **session_id** (*str*): The session id.
+    **eeg_data_id** (*str*): The EEG data id.
+    **start_time** (*str*): The start time of the interval in ISO 8601 format.
+    **end_time** (*str*): The end time of the interval in ISO 8601 format.
+    **tags** (*list*): List of tags, each tag is a dictionary containing a "tag" and "properties".
+    **channel_ids** (*list*, optional): List of channel ids the tag applies to. If None, applies to all channels.
+
+    Returns:
+        *str*: The interval ID if the interval is successfully created, None otherwise.
+
+    Example:
+    ```
+    interval_id = create_tagged_interval(
+        session_id="session_123",
+        eeg_data_id="eeg_data_456",
+        start_time="2023-01-01T00:00:00Z",
+        end_time="2023-01-01T00:05:00Z",
+        tags=[{"tag": "seizure", "properties": {"severity": "high"}}]
+    )
+    if interval_id:
+        print(f"Tagged interval created with ID: {interval_id}")
+    else:
+        print("Tagged interval creation failed.")
+    ```
+    """
+    url = f"{BASE_URL}/api/{VERSION}/session/{session_id}/tag"
+    interval_data = {
+        "user_id": user_id,
+        "session_id": session_id,
+        "eeg_data_id": eeg_data_id,
+        "start_time": start_time,
+        "end_time": end_time,
+        "tags": tags,
+        "channel_ids": channel_ids if channel_ids else []
+    }
+    
+    if validate_metadata(interval_data, "tagSchema"):
+        response = requests.post(
+            url,
+            json=interval_data,
+            headers={'Content-Type': 'application/json'}
+        )
+
+        if response.status_code == 201:
+            print("Tagged interval successfully created.")
+            interval_id = response.json().get('interval_id')
+            return interval_id
+        else:
+            print("Tagged interval creation failed:", response.text)
+            return None
+    else:
+        print("Tagged interval creation failed due to validation error.")
 
 
 
@@ -1050,6 +1115,8 @@ def train(session_id, params, user_id):
     else:
         print("Publish failed:", response.text)
         return None
+
+
 
 
 ######################################################
