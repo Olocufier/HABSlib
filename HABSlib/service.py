@@ -818,8 +818,6 @@ def set_pipe(metadata, pipeline, params, user_id):
         data=encrypt_message(_session, aes_key_bytes),
         headers={'Content-Type': 'application/octet-stream', 'X-User-ID':user_id}
     )
-    # response = requests.get(url, headers={'X-User-ID':USERID}) # mongo _id for the user document. Communicated at user creation.
-
     if response.status_code == 200:
         print("Session successfully created.")
         # Extract the unique identifier for the uploaded data
@@ -930,14 +928,14 @@ def acquire_send_pipe(pipeline, params, user_id, date, board, serial_number, str
       "session_type": session_type,
       "session_tags": tags
     }
-    session_id = set_pipe(metadata={**session_metadata}, pipeline=pipeline, params=params, user_id=user_id)
-    print("\nSession initialized. You can visualize it here:\n ", "https://habs.ai/live.html?session_id="+str(session_id), "\n")
-
     if validate_metadata(session_metadata, "sessionSchema"):
+        session_id = set_pipe(metadata={**session_metadata}, pipeline=pipeline, params=params, user_id=user_id)
+        print("\nSession initialized. You can visualize it here:\n ", "https://habs.ai/bos/live.html?session_id="+str(session_id), "\n")
+
         asyncio.run( 
             _acquire_send_pipe(pipeline, params, user_id, session_id, board, serial_number, stream_duration, buffer_duration, callback, extra) 
         )
-        return session_id
+        return session_id #, self.processed_data
     else:
         print("Session initialization failed.")
         return False
@@ -1069,6 +1067,48 @@ def create_tagged_interval(user_id, session_id, eeg_data_id, start_time, end_tim
             return None
     else:
         print("Tagged interval creation failed due to validation error.")
+
+
+
+
+
+######################################################
+def process_session_pipe(pipeline, params, user_id, date, existing_session_id, session_type="", tags=[]):
+    session_metadata = {
+      "user_id": user_id, # add user to the session for reference
+      "session_date": date, # .strftime("%m/%d/%Y, %H:%M:%S"),
+      "existing_session_id": existing_session_id,
+      "session_type": f"[On {existing_session_id}]: {session_type}", # type of the new session
+      "session_tags": tags
+    }
+    if validate_metadata(session_metadata, "sessionSchema"):
+        url = f"{BASE_URL}/api/{VERSION}/sessions/{existing_session_id}/pipe/{pipeline}"
+        _session = {
+            "metadata": session_metadata,
+            "processing_params": params,
+        }
+        _session = json.dumps(_session).encode('utf-8')
+        aes_key_b64 = os.environ.get('AES_KEY')
+        aes_key_bytes = base64.b64decode(aes_key_b64)
+        response = requests.post(
+            url,
+            data=encrypt_message(_session, aes_key_bytes),
+            headers={'Content-Type': 'application/octet-stream', 'X-User-ID':user_id}
+        )
+        if response.status_code == 200:
+            print("Session successfully created.")
+            session_id = response.json().get('session_id')
+            pipeData = response.json().get('pipeData')
+            # print(session_id)
+            return session_id, pipeData
+        else:
+            print("Session failed:", response.text)
+            return None
+
+        return session_id # processed_data
+    else:
+        print("Session failed.")
+        return False
 
 
 
