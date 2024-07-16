@@ -1,3 +1,4 @@
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/Olocufier/HABSlib/HEAD)
 # HABSlib
 
 A Python library for interacting with the HABS BrainOS API, to manage EEG recordings, handling complexities like encryption, authentication, and more, so you can focus on building your application.
