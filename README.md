@@ -3,6 +3,8 @@
 
 A Python library for interacting with the HABS BrainOS API, to manage EEG recordings, handling complexities like encryption, authentication, and more, so you can focus on building your application.
 
+Please, consider reading (and providing feedback about) our online [documentation](https://olocufier.github.io/HABSlib/HABSlib/service.html).
+
 
 ## Installation
 
