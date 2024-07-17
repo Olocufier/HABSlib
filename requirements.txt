@@ -13,3 +13,4 @@ pytest-order
 pytest-dependency
 pdoc
 pyEDFlib
+matplotlib
