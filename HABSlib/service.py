@@ -4,7 +4,7 @@
 r"""
 # HABSlib: Python Library for EEG Analysis and Biomarker Evaluation
 
-HABSlib is a versatile Python library designed to facilitate interaction with the BrainOS HABS API for comprehensive EEG data analysis and biomarker evaluation. 
+HABSlib is a versatile Python library designed to facilitate interaction with the HABS BrainOS API for comprehensive EEG data analysis and biomarker evaluation. 
 Developed to support neuroscientific research and clinical applications, HABSlib simplifies the process of fetching, processing, and analyzing EEG data through a user-friendly interface.
 
 Key Features:
@@ -23,18 +23,22 @@ A *Session* with the HABS BrainOS iinitiates with an handshake during which encr
 
 There are two general types of session: *real-time* and *off-line*.
 
-In setting a either a real-time or off-line session, the user provides the session metadata, such as their user_id, session_date (both required), and additional notes depending on the nature of recordings.
+In setting a either a real-time or off-line session, the user provides the session metadata, such as their user_id, session_date, session type (all required), and additional notes depending on the nature of recordings.
 
 Then, in a real-time session, the user specifies the type of EEG DEVICE ('board') used, the duration of the EEG recording, and the frequency of server update. 
 
-In an off-line session, the user specifies a file name from which the data should be read. The HABSlib reads the file (it currently supports EDF file type only, but it's growing) and sends it to the server.
+In an off-line session, the user specifies a session id (referring to data already exisiting, either acquired live at some point in time, or from an uploaded file).    
+The HABSlib can read EDF files (EDF file type only, for now, but it's growing) and sends it to the server.
 
 In these simple types of session, after the real-time or offline uploading, the data can be selected via the session_id for further processing.
 
-### Piped sessions
+### Piped functions
 
-There is another type of session, called *piped* session, during which the EEG data is processed by the server as soon as it is received, and the results are sent back to the user as soon as they are processed.    
-This type of session is real-time only. During its setup, users can choose (from a growing number of available functions) the type of processing they wish to be performed on the data.
+There is another type of session, called *piped* session. This type of session is meant to help you organize the flow of analysis and make it reproducible.     
+Usually, an analysis implies several steps over the raw data. BrainOS allows you to perform a growing number of predefined and parametrizable functions over the data, to filter, remove artifacts, and extract features. 
+And you can do it without taking the output of one function and passing it to another. You can pipe (|) the output of one function into the next.
+
+This session type also is available as *real-time* and *off-line*. In the *real-time* version the EEG data is processed as per pipe by the server as soon as it is received, and the results are sent back to the user as soon as they are processed.    
 """
 
 import sys
@@ -468,8 +472,28 @@ def get_data_by_id(data_id, user_id):
 
 ######################################################
 def find_sessions_by_user(user_id):
-    """
-            **user_id** (*str*): The user id (obtained through free registration with HABS)
+  """
+    Retrieve session IDs associated with a given user.
+
+    This function sends a GET request to the API to retrieve all session IDs for a specified user.
+    It expects the user ID to be passed as an argument and uses the user ID for authentication.
+
+    Args:
+        user_id (str): The user ID (obtained through free registration with HABS).
+
+    Returns:
+        list: A list of session IDs if the request is successful.
+
+    Raises:
+        Exception: If the request fails or if there is an error in the response.
+
+    Example:
+        >>> sessions = find_sessions_by_user("12345")
+        >>> print(sessions)
+        ["session1", "session2", "session3"]
+
+    Notes:
+        Ensure that the environment variable `AES_KEY` is set to the base64 encoded AES key.
 
     """
     url = f"{BASE_URL}/api/{VERSION}/sessions/{user_id}"
@@ -570,7 +594,7 @@ def get_data_ids_by_session(session_id, user_id):
 ######################################################
 def upload_data(metadata, timestamps, user_id, data, ppg_red, ppg_ir):
     """
-    Uploads EEG and PPG data to the server along with associated metadata.
+    Uploads EEG (and PPG) data to the server along with associated metadata.
 
     This function compiles different types of physiological data along with metadata into a single dictionary,
     encrypts the data, and then uploads it via a POST request. Upon successful upload, the server returns a
@@ -586,6 +610,9 @@ def upload_data(metadata, timestamps, user_id, data, ppg_red, ppg_ir):
 
     Returns:     
         *tuple*: A tuple containing the data ID of the uploaded data if successful, and None otherwise.
+
+    Notes:
+        Ensure that timestamps has the same length of data last dimension.
 
     Example:
     ```
@@ -1074,6 +1101,38 @@ def create_tagged_interval(user_id, session_id, eeg_data_id, start_time, end_tim
 
 ######################################################
 def process_session_pipe(pipeline, params, user_id, date, existing_session_id, session_type="", tags=[]):
+    """
+    Process a session pipeline with specified parameters and metadata.
+
+    This function processes an existing session by applying a specified pipeline and parameters.
+    It sends a POST request to the API with the session metadata and processing parameters,
+    creating a new session based on the existing one.
+
+    Args:
+        **pipeline** (*str*): The pipeline to be applied to the session.
+        **params** (*dict*): The processing parameters for the pipeline.
+        **user_id** (*str*): The user ID (obtained through free registration with HABS).
+        **date** (*str*): The date of the session.
+        **existing_session_id** (*str*): The ID of the existing session to be processed.
+        **session_type** (*str*, optional): The type of the new session. Defaults to an empty string.
+        **tags** (*list*, optional): A list of tags associated with the session. Defaults to an empty list.
+
+    Returns:
+        tuple: A tuple containing the new session ID and the processed data if the request is successful.
+        None: If the session creation fails.
+        bool: False if the session metadata is invalid.
+
+    Example:
+        >>> new_session_id, processed_data = process_session_pipe("my_pipeline", {"param1": "value1"}, "12345", "2023-07-03", "existing_session_001")
+        >>> print(new_session_id, processed_data)
+
+    Notes:
+        Ensure that the environment variable `AES_KEY` is set to the base64 encoded AES key.
+
+    Raises:
+        Exception: If there is an error in the request or response.
+
+    """
     session_metadata = {
       "user_id": user_id, # add user to the session for reference
       "session_date": date, # .strftime("%m/%d/%Y, %H:%M:%S"),
@@ -1202,28 +1261,3 @@ def infer(data_id, params, user_id):
     else:
         print("Publish failed:", response.text)
         return None
-
-
-
-############################
-# BrainOS - HABSlib - TODO #
-############################
-# 
-# - Encryption:
-#       - Client side:
-#           2.    Client starts handshake (GET)
-#           4.    Client receives the public RSA and stores it.
-#           5.    Client encrypts the AES key using the server's RSA public key and sends it to the server.
-#           7.    All subsequent communications use the AES key for encryption and decryption, ensuring fast and secure data exchange.
-# 
-# - Unit Test:
-#       - the file client.py is the base for testing habslib
-#       - Low level unit test: for single-use function in this file, and BoradManager
-#       - High level unit test: fixtures for creating the session, sending data and retrieving
-#       - Tests are on demand, not necessarily for every commit. But for each major change yes.
-# 
-# - Code coverage
-# 
-# - Reviewer:
-#       Human
-#       Automated (unit test passing GitLab Ops)

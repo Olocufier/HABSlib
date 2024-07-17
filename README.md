@@ -23,11 +23,7 @@ import HABSlib as hb
 
 ###############
 # Security handshake
-hb.handshake(base_url="http://0.0.0.0")
-
-###############
-# Set user/subject (if the user already exists it should not creat one)
-user_id = hb.set_user("Domenico", "Guarino", "domenico@habs.ai", 50, 89, "M")
+hb.handshake(base_url="http://habs", user_id="your_id_from_habs")
 
 ###############
 # Get user data by id
