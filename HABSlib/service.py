@@ -32,7 +32,7 @@ The HABSlib can read EDF files (EDF file type only, for now, but it's growing) a
 
 In these simple types of session, after the real-time or offline uploading, the data can be selected via the session_id for further processing.
 
-### Piped functions
+### Piped sessions
 
 There is another type of session, called *piped* session. This type of session is meant to help you organize the flow of analysis and make it reproducible.     
 Usually, an analysis implies several steps over the raw data. BrainOS allows you to perform a growing number of predefined and parametrizable functions over the data, to filter, remove artifacts, and extract features. 
@@ -145,6 +145,7 @@ def convert_datetime_in_dict(data):
         elif isinstance(value, dict):
             data[key] = convert_datetime_in_dict(value)
     return data
+
 
 def head():
     """
@@ -270,6 +271,8 @@ def set_user(user_id, first_name=None, last_name=None, role=None, group=None, em
         print(f"User created/retrieved with ID: {user_id}")
     else:
         print("User creation failed.")
+
+    **NOTE**: In order to use this function, your role should be `Admin`
     ```
     """
     url = f"{BASE_URL}/api/{VERSION}/users"
@@ -472,7 +475,7 @@ def get_data_by_id(data_id, user_id):
 
 ######################################################
 def find_sessions_by_user(user_id):
-  """
+    """
     Retrieve session IDs associated with a given user.
 
     This function sends a GET request to the API to retrieve all session IDs for a specified user.
@@ -494,7 +497,6 @@ def find_sessions_by_user(user_id):
 
     Notes:
         Ensure that the environment variable `AES_KEY` is set to the base64 encoded AES key.
-
     """
     url = f"{BASE_URL}/api/{VERSION}/sessions/{user_id}"
 
