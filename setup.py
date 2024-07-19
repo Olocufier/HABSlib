@@ -35,7 +35,7 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    data_files=[('docs', ['docs/index.html', 'docs/HABSlib/service.html'])],
+    data_files=[('docs', ['docs/index.html'])],
     license="MIT",
     python_requires='>=3.6',
 )
