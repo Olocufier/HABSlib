@@ -210,7 +210,7 @@ class BoardManager(metaclass=SingletonMeta):
         epoch_period = buffer_duration
         noise_level = params.get("noise", 1)
         artifact_prob = params.get("artifacts", 0.01)
-        modulation_type = params.get("modulation_type", 'sinusoidal')
+        modulation_type = params.get("modulation_type", None)
         preset = params.get("preset", None)
         sequence = params.get("sequence", None)
         correlation_strength = params.get("correlation_strength", 0.5)  # Strength of correlation between nearby channels
@@ -256,24 +256,35 @@ class BoardManager(metaclass=SingletonMeta):
         }
 
         # Managing the type of EEG modulation
-        if modulation_type == 'sinusoidal':
-            modulating_freq = 0.1  # frequency of the amplitude modulation
-            delta_mod = (1 + np.sin(2 * np.pi * modulating_freq * t)) / 2  # between 0.5 and 1.5
-            theta_mod = (1 + np.cos(2 * np.pi * modulating_freq * t)) / 2
-            alpha_mod = (1 + np.sin(2 * np.pi * modulating_freq * t + np.pi / 4)) / 2
-            beta_mod = (1 + np.cos(2 * np.pi * modulating_freq * t + np.pi / 4)) / 2
-            gamma_mod = (1 + np.sin(2 * np.pi * modulating_freq * t + np.pi / 2)) / 2
-        elif modulation_type == 'random':
-            delta_mod = np.abs(np.random.randn(total_samples))
-            theta_mod = np.abs(np.random.randn(total_samples))
-            alpha_mod = np.abs(np.random.randn(total_samples))
-            beta_mod = np.abs(np.random.randn(total_samples))
-            gamma_mod = np.abs(np.random.randn(total_samples))
-        
+        if modulation_type:
+            if modulation_type == 'sinusoidal':
+                modulating_freq = 0.1  # frequency of the amplitude modulation
+                delta_mod = (1 + np.sin(2 * np.pi * modulating_freq * t)) / 2  # between 0.5 and 1.5
+                theta_mod = (1 + np.cos(2 * np.pi * modulating_freq * t)) / 2
+                alpha_mod = (1 + np.sin(2 * np.pi * modulating_freq * t + np.pi / 4)) / 2
+                beta_mod = (1 + np.cos(2 * np.pi * modulating_freq * t + np.pi / 4)) / 2
+                gamma_mod = (1 + np.sin(2 * np.pi * modulating_freq * t + np.pi / 2)) / 2
+            elif modulation_type == 'random':
+                delta_mod = np.abs(np.random.randn(total_samples))
+                theta_mod = np.abs(np.random.randn(total_samples))
+                alpha_mod = np.abs(np.random.randn(total_samples))
+                beta_mod = np.abs(np.random.randn(total_samples))
+                gamma_mod = np.abs(np.random.randn(total_samples))
+        else:
+            delta_mod = 1.
+            theta_mod = 1.
+            alpha_mod = 1.
+            beta_mod  = 1.
+            gamma_mod = 1.
+
+        # Compose the signal
         for band, (low, high) in bands.items():
             amplitude = amplitudes[band]
             freqs = np.linspace(low, high, int(samples_per_second / 2))
-            power_law = freqs ** -power_law_slope
+            if power_law_slope:
+                power_law = freqs ** -power_law_slope
+            else:
+                power_law = [1.0 for f in freqs]
 
             for i in range(num_channels):
                 for f, p in zip(freqs, power_law):
