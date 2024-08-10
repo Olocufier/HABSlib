@@ -246,7 +246,6 @@ class BoardManager(metaclass=SingletonMeta):
             'Beta': (13, 30),
             'Gamma': (30, 100)
         }
-
         amplitudes = {
             'Delta': delta_amp,
             'Theta': theta_amp,
