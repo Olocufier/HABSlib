@@ -718,6 +718,8 @@ def acquire_send_raw(user_id, date, board, serial_number, stream_duration, buffe
 async def _acquire_send_raw(user_id, session_id, board, serial_number, stream_duration, buffer_duration, callback=None, extra=None):
     # get board
     board_manager = BoardManager(enable_logger=False, board_id=board, serial_number=serial_number, extra=extra)
+    if board=="SYNTHETIC":
+        board_manager.assign_extra(extra)
     board_manager.connect()
 
     board_manager.metadata['session_id'] = session_id # add session to the data for reference
@@ -973,6 +975,8 @@ def acquire_send_pipe(pipeline, params, user_id, date, board, serial_number, str
 async def _acquire_send_pipe(pipeline, params, user_id, session_id, board, serial_number, stream_duration, buffer_duration, callback=None, extra=None):
     # get board
     board_manager = BoardManager(enable_logger=False, board_id=board, serial_number=serial_number, extra=extra)
+    if board=="SYNTHETIC":
+        board_manager.assign_extra(extra)
     board_manager.connect()
 
     board_manager.metadata['session_id'] = session_id # add session to the data for reference

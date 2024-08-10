@@ -47,6 +47,9 @@ class BoardManager(metaclass=SingletonMeta):
             self.extra_board = None
             self.params = BrainFlowInputParams()
 
+            # Serial Number
+            self.params.serial_number = serial_number
+
             # Board Id
             if board_id == "MUSE_2":
                 self.board_id = BoardIds.MUSE_2_BOARD
@@ -55,19 +58,23 @@ class BoardManager(metaclass=SingletonMeta):
                 self.preset = BrainFlowPresets.ANCILLARY_PRESET
             else:
                 self.board_id = BoardIds.SYNTHETIC_BOARD
-                self.extra_board = extra # Extra Board parameters
-
-            # Serial Number
-            self.params.serial_number = serial_number
-            if self.board_id == BoardIds.SYNTHETIC_BOARD:
                 self.params.serial_number = ""
 
             if not enable_logger:
                 BoardShim.disable_board_logger()
+
             self.initialized = True  # Mark as initialized
+
             # local availability
             self.data_ids = []
             self.processed_data = []
+
+        if self.board_id == BoardIds.SYNTHETIC_BOARD:
+            self.extra_board = extra # Extra Board parameters
+
+
+    def assign_extra( self, extra_params=None):
+        self.extra_board = extra_params # Extra Board parameters
 
 
     def connect(self, retries=3, delay=2):
