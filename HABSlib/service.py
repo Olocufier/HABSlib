@@ -1180,6 +1180,7 @@ def process_session_pipe(pipeline, params, user_id, date, existing_session_id, s
             session_id = response.json().get('session_id')
             task_id = response.json().get('task_id')
             # print(session_id)
+            # print("task_id: ",task_id)
             # return session_id, task_id
             subscription_response = requests.get(f"{BASE_URL}/api/{VERSION}/results/subscribe/{task_id}", headers={'X-User-ID': user_id}, stream=True)
             if subscription_response.status_code == 200:

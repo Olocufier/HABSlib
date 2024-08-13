@@ -153,7 +153,7 @@ class BoardManager(metaclass=SingletonMeta):
 
         # for extra board params
         if self.board_id is BoardIds.SYNTHETIC_BOARD and self.extra_board is not None:
-            extra_data = self.generate_dummy_eeg_data(self.extra_board, buffer_duration)
+            extra_data = self.generate_dummy_eeg_data(self.extra_board, stream_duration)
 
         iter_counter = 0
         t_ref = None
@@ -169,7 +169,8 @@ class BoardManager(metaclass=SingletonMeta):
                     # Dummy data has been created before. Here dummy data is copied according to iter
                     if self.board_id is BoardIds.SYNTHETIC_BOARD and self.extra_board is not None:
                         #      #dummy channels                        ch, from 
-                        data[ : extra_data.shape[0], :] = extra_data[ : , iter_counter*buffer_size_samples:(iter_counter+1)*buffer_size_samples]
+                        data[ : extra_data.shape[0], :] = extra_data[ : , iter_counter*buffer_size_samples : (iter_counter+1)*buffer_size_samples ]
+                        # data[:extra_data.shape[0], :] = extra_data
 
                     eeg_data =   data[self.eeg_channels, :]
                     timestamps = data[self.timestamp_channel, :]
@@ -216,7 +217,6 @@ class BoardManager(metaclass=SingletonMeta):
 
 
     def generate_dummy_eeg_data(self, params, buffer_duration):
-        print("buffer_duration",buffer_duration)
         # Extract parameters from JSON dictionary
         num_channels = params.get("eeg_channels", 8)
         samples_per_second = params.get("sampling_rate", 256)
@@ -224,8 +224,8 @@ class BoardManager(metaclass=SingletonMeta):
         noise_level = params.get("noise", 1)
         artifact_prob = params.get("artifacts", 0.01)
         modulation_type = params.get("modulation_type", None)
-        preset = params.get("preset", None)
-        sequence = params.get("sequence", None)
+        preset = params.get("preset", None) # "focus"
+        sequence = params.get("sequence", None) # [("relaxed",5),("alert",15)]
         correlation_strength = params.get("correlation_strength", 0.5)  # Strength of correlation between nearby channels
         power_law_slope = params.get("power_law_slope", 1.0)
 
@@ -248,7 +248,7 @@ class BoardManager(metaclass=SingletonMeta):
             gamma_amp = params.get("gamma_amp", 0.1)
         
         total_samples = samples_per_second * epoch_period
-        t = np.linspace(0, epoch_period, total_samples, endpoint=False)
+        t = np.linspace(start=0, stop=epoch_period, num=total_samples, endpoint=False)
         eeg_data = np.zeros((num_channels, total_samples))
 
         # Frequency bands
@@ -329,16 +329,11 @@ class BoardManager(metaclass=SingletonMeta):
             full_data = []
             for seq in sequence:
                 preset, duration = seq
-                print(preset, duration)
                 temp_params = params.copy()
                 temp_params['preset'] = preset
-                temp_params['epoch_period'] = duration
                 temp_params['sequence'] = None
                 segment = self.generate_dummy_eeg_data(temp_params, duration)
-                print(segment.shape)
                 full_data.append(segment)
             eeg_data = np.hstack(full_data)
-            print("pre")
-            print(eeg_data.shape)
 
         return eeg_data
