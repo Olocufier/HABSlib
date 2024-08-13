@@ -1038,7 +1038,7 @@ def get_user_database(user_id):
 
 
 ######################################################
-def create_tagged_interval(user_id, session_id, eeg_data_id, start_time, end_time, tags, channel_ids=None):
+def create_tagged_interval(user_id, session_id, start_time, end_time, tags, channel_ids=None):
     """
     Creates a tagged interval by sending the interval data to the server.
 
@@ -1049,7 +1049,6 @@ def create_tagged_interval(user_id, session_id, eeg_data_id, start_time, end_tim
 
     Args:
     **session_id** (*str*): The session id.
-    **eeg_data_id** (*str*): The EEG data id.
     **start_time** (*str*): The start time of the interval in ISO 8601 format.
     **end_time** (*str*): The end time of the interval in ISO 8601 format.
     **tags** (*list*): List of tags, each tag is a dictionary containing a "tag" and "properties".
@@ -1062,7 +1061,6 @@ def create_tagged_interval(user_id, session_id, eeg_data_id, start_time, end_tim
     ```
     interval_id = create_tagged_interval(
         session_id="session_123",
-        eeg_data_id="eeg_data_456",
         start_time="2023-01-01T00:00:00Z",
         end_time="2023-01-01T00:05:00Z",
         tags=[{"tag": "seizure", "properties": {"severity": "high"}}]
@@ -1077,7 +1075,6 @@ def create_tagged_interval(user_id, session_id, eeg_data_id, start_time, end_tim
     interval_data = {
         "user_id": user_id,
         "session_id": session_id,
-        "eeg_data_id": eeg_data_id,
         "start_time": start_time,
         "end_time": end_time,
         "tags": tags,
@@ -1100,6 +1097,56 @@ def create_tagged_interval(user_id, session_id, eeg_data_id, start_time, end_tim
             return None
     else:
         print("Tagged interval creation failed due to validation error.")
+
+
+
+
+######################################################
+def get_tagged_interval_data(user_id, session_id, tag):
+    """
+    Retrieves data for a specific tagged interval from the server.
+
+    This function performs the following steps:
+    1. Constructs the request URL with the session_id and tag.
+    2. Sends a GET request to the server to retrieve the data.
+    3. Parses the server's response.
+
+    Args:
+    **user_id** (*str*): The user id.
+    **session_id** (*str*): The session id.
+    **tag** (*str*): The tag associated with the interval.
+
+    Returns:
+        *dict*: The data corresponding to the tagged interval if successful, None otherwise.
+
+    Example:
+    ```
+    data = get_tagged_interval_data(
+        user_id="user_123",
+        session_id="session_456",
+        tag="seizure"
+    )
+    if data:
+        print(f"Data retrieved for tag 'seizure': {data}")
+    else:
+        print("Failed to retrieve data for the specified tag.")
+    ```
+    """
+    url = f"{BASE_URL}/api/{VERSION}/session/{session_id}/tag/{tag}"
+
+    response = requests.get(
+        url,
+        headers={'Content-Type': 'application/json', 'X-User-ID': user_id}
+    )
+
+    if response.status_code == 200:
+        data = response.json().get('data')
+        print(f"Successfully retrieved data for tag '{tag}'.")
+        return data
+    else:
+        print(f"Failed to retrieve data: {response.text}")
+        return None
+
 
 
 

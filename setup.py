@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name="HABSlib",
-    version="0.1.41",
+    version="0.1.42",
     author="Domenico Guarino",
     author_email="domenico@habs.ai",
     description="A library for interacting with the HABS BrainOS API.",

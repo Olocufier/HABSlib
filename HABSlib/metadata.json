@@ -77,10 +77,6 @@
         "type": "string",
         "description": "Reference to the session"
       },
-      "eeg_data_id": {
-        "type": "string",
-        "description": "Reference to the EEG data document"
-      },
       "start_time": {
         "type": "string",
         "format": "date-time",
@@ -119,7 +115,7 @@
         "description": "List of tags, each containing a tag label and associated properties"
       }
     },
-    "required": ["session_id", "eeg_data_id", "start_time", "end_time", "tags"]
+    "required": ["session_id", "start_time", "end_time", "tags"]
   }
 
 
