@@ -327,7 +327,7 @@ class BoardManager(metaclass=SingletonMeta):
                 temp_params['preset'] = preset
                 temp_params['epoch_period'] = duration
                 temp_params['sequence'] = None
-                segment = generate_dummy_eeg_data(temp_params)
+                segment = self.generate_dummy_eeg_data(temp_params, duration)
                 full_data.append(segment)
             eeg_data = np.hstack(full_data)
 

@@ -1103,6 +1103,21 @@ def create_tagged_interval(user_id, session_id, eeg_data_id, start_time, end_tim
 
 
 
+# ######################################################
+# def sse_request(url, keyword):
+#     with requests.get(url, stream=True) as response:
+#         if response.status_code == 200:
+#             client = response.iter_lines()
+#             for line in client:
+#                 if line:
+#                     # SSE messages start with "data: ", so we remove that part
+#                     if line.decode("utf-8").startswith(f"{keyword}:"):
+#                         payload = line.decode("utf-8")[len(keyword)+1:]
+#                         print("Received event:", payload)
+#                         return payload
+#         else:
+#             print(f"Failed to connect: {response.status_code}")
+
 
 
 ######################################################
@@ -1163,14 +1178,21 @@ def process_session_pipe(pipeline, params, user_id, date, existing_session_id, s
         if response.status_code == 200:
             print("Session successfully created.")
             session_id = response.json().get('session_id')
-            pipeData = response.json().get('pipeData')
+            task_id = response.json().get('task_id')
             # print(session_id)
-            return session_id, pipeData
+            # return session_id, task_id
+            subscription_response = requests.get(f"{BASE_URL}/api/{VERSION}/results/subscribe/{task_id}", headers={'X-User-ID': user_id}, stream=True)
+            if subscription_response.status_code == 200:
+                if "error" in subscription_response.text:
+                    print("Session failed:", subscription_response.text)
+                    return session_id, None
+                processed_data = subscription_response.json().get('pipeData')
+                return task_id, processed_data
         else:
             print("Session failed:", response.text)
-            return None
+            return session_id, None
 
-        return session_id # processed_data
+        return session_id, None 
     else:
         print("Session failed.")
         return False
