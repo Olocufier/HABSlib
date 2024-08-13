@@ -151,6 +151,10 @@ class BoardManager(metaclass=SingletonMeta):
         total_iterations = 1 + math.ceil((stream_duration - buffer_duration) / buffer_duration)
         self.board.start_stream(buffer_size_samples)
 
+        # for extra board params
+        if self.board_id is BoardIds.SYNTHETIC_BOARD and self.extra_board is not None:
+            extra_data = self.generate_dummy_eeg_data(self.extra_board, buffer_duration)
+
         iter_counter = 0
         t_ref = None
         try:
@@ -162,9 +166,10 @@ class BoardManager(metaclass=SingletonMeta):
                 if data.shape[1] >= buffer_size_samples: 
 
                     # for extra board params
+                    # Dummy data has been created before. Here dummy data is copied according to iter
                     if self.board_id is BoardIds.SYNTHETIC_BOARD and self.extra_board is not None:
-                        extra_data = self.generate_dummy_eeg_data(self.extra_board, buffer_duration)
-                        data[:extra_data.shape[0], :] = extra_data
+                        #      #dummy channels                        ch, from 
+                        data[ : extra_data.shape[0], :] = extra_data[ : , iter_counter*buffer_size_samples:(iter_counter+1)*buffer_size_samples]
 
                     eeg_data =   data[self.eeg_channels, :]
                     timestamps = data[self.timestamp_channel, :]
@@ -211,6 +216,7 @@ class BoardManager(metaclass=SingletonMeta):
 
 
     def generate_dummy_eeg_data(self, params, buffer_duration):
+        print("buffer_duration",buffer_duration)
         # Extract parameters from JSON dictionary
         num_channels = params.get("eeg_channels", 8)
         samples_per_second = params.get("sampling_rate", 256)
@@ -323,12 +329,16 @@ class BoardManager(metaclass=SingletonMeta):
             full_data = []
             for seq in sequence:
                 preset, duration = seq
+                print(preset, duration)
                 temp_params = params.copy()
                 temp_params['preset'] = preset
                 temp_params['epoch_period'] = duration
                 temp_params['sequence'] = None
                 segment = self.generate_dummy_eeg_data(temp_params, duration)
+                print(segment.shape)
                 full_data.append(segment)
             eeg_data = np.hstack(full_data)
+            print("pre")
+            print(eeg_data.shape)
 
         return eeg_data
