@@ -54,7 +54,8 @@ from jsonschema import exceptions
 import numpy as np
 
 import time
-from datetime import datetime
+from datetime import datetime as dt
+
 import uuid
 import asyncio
 import webbrowser
@@ -1022,7 +1023,7 @@ def get_user_database(user_id):
 
     if response.status_code == 200:
         # Open a local file with write-binary mode
-        strtime = datetime.today().strftime("%Y%m%d_%H%M%S")
+        strtime = dt.now().strftime("%Y%m%d_%H%M%S")
 
         with open(f"brainos_{strtime}_dump.zip", 'wb') as file:
             # Write the response content to the file in chunks

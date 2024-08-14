@@ -12,6 +12,7 @@ import scipy
 import numpy as np
 from scipy import signal
 
+from datetime import datetime, timedelta, timezone
 
 
 #############################
@@ -195,7 +196,8 @@ class BoardManager(metaclass=SingletonMeta):
                         data_id, proc_data = service(
                             metadata=self.metadata, 
                             data=eeg_data.tolist(), 
-                            timestamps=timestamps.tolist(), 
+                            # timestamps are assumed to be UTC (but enforced); timedelta is required because the session starts 5secs before the first data is retrieved
+                            timestamps=[(datetime.fromtimestamp(ts, tz=timezone.utc)-timedelta(seconds=5)).timestamp() for ts in timestamps], 
                             user_id=user_id,
                             ppg_red=ppg_red.tolist(), 
                             ppg_ir=ppg_ir.tolist()
