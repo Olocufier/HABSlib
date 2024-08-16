@@ -154,14 +154,14 @@ def head():
     Propose yours, there is a prize for the best one!
     """
     print()
-    print("       HUMAN        AUGMENTED        BRAIN         SYSTEMS     ")
-    print("   ----------------------------------------------------------- ")
-    print("   ▒▒▒▒     ▒▒▒▒     ░▒▒▒▒▒░     ▒▒▒▒▒▒▒▒▒▒▒▒░   ░▒▒▒▒▒▒▒▒▒░   ")
-    print("   ▒▒▒▒     ▒▒▒▒    ░▒▒▒▒▒▒▒░             ░▒▒▒▒ ░▒▒▒░     ░▒░  ")
-    print("   ▒▒▒▒▒▒▒▒▒▒▒▒▒   ░▒▒▒▒ ▒▒▒▒░   ▒▒▒▒▒▒▒▒▒▒▒▒▒   ░▒▒▒▒▒▒▒▒▒░   ")
-    print("   ▒▒▒▒     ▒▒▒▒  ░▒▒▒▒   ▒▒▒▒░  ▒▒▒▒     ░▒▒▒▒ ░▒░     ░▒▒▒░  ")
-    print("   ▒▒▒▒     ▒▒▒▒ ░▒▒▒▒     ▒▒▒▒░ ▒▒▒▒▒▒▒▒▒▒▒▒░   ░▒▒▒▒▒▒▒▒▒░   ")
-    print("   ----------------------------------------------------------- ")
+    print("       HUMAN        AUGMENTED        BRAIN         SYSTEMS    ")
+    print("   ---------------------------------------------------------- ")
+    print("   ▒▒▒▒     ▒▒▒▒     ░▒▒▒▒▒░     ▒▒▒▒▒▒▒▒▒▒▒▒░   ░▒▒▒▒▒▒▒▒▒░  ")
+    print("   ▒▒▒▒     ▒▒▒▒    ░▒▒▒▒▒▒▒░             ░▒▒▒▒ ░▒▒▒░     ░▒░ ")
+    print("   ▒▒▒▒▒▒▒▒▒▒▒▒▒   ░▒▒▒▒ ▒▒▒▒░   ▒▒▒▒▒▒▒▒▒▒▒▒▒   ░▒▒▒▒▒▒▒▒▒░  ")
+    print("   ▒▒▒▒     ▒▒▒▒  ░▒▒▒▒   ▒▒▒▒░  ▒▒▒▒     ░▒▒▒▒ ░▒░     ░▒▒▒░ ")
+    print("   ▒▒▒▒     ▒▒▒▒ ░▒▒▒▒     ▒▒▒▒░ ▒▒▒▒▒▒▒▒▒▒▒▒░   ░▒▒▒▒▒▒▒▒▒░  ")
+    print("   ---------------------------------------------------------- ")
     print("   version:", version("HABSlib"))
     print()
 
@@ -311,6 +311,7 @@ def set_user(user_id, first_name=None, last_name=None, role=None, group=None, em
         print("User creation failed.")
 
 
+
 ######################################################
 def search_user_by_mail(user_id, email):
     """
@@ -334,7 +335,7 @@ def search_user_by_mail(user_id, email):
         print("User not found.")
     ```
     """
-    url = f"{BASE_URL}/api/{VERSION}/users?email={email}"
+    url = f"{BASE_URL}/api/{VERSION}/users/find?email={email}"
 
     response = requests.get(url, headers={'X-User-ID':user_id}) # mongo _id for the user document. Communicated at user creation.
 
@@ -345,6 +346,7 @@ def search_user_by_mail(user_id, email):
     else:
         print("User not found.", response.text)
         return None
+
 
 
 ######################################################
@@ -385,6 +387,43 @@ def get_user_by_id(user_id):
     else:
         print("User not found:", response.text)
         return None
+
+
+
+
+######################################################
+def list_users(user_id):
+    """
+    List all users.
+
+    This function sends a GET request to the server to list all users.
+
+    Args:     
+        **user_id** (*str*): The user id (obtained through free registration with HABS)
+
+    Returns:     
+        list: A list of user data dictionaries, or None if an error occurs.
+
+    Example:
+    ```
+    users = list_users(user_id)
+    if users:
+        for user in users:
+            print(f"User ID: {user['user_id']}, Username: {user['username']}")
+    ```
+    """
+    url = f"{BASE_URL}/api/{VERSION}/users"
+
+    response = requests.get(url, headers={'X-User-ID': user_id})  # mongo _id for the user document. Communicated at user creation.
+
+    if response.status_code == 200:
+        users = response.json().get('users')
+        print("Users retrieved.")
+        return users
+    else:
+        print("Error:", response.text)
+        return None
+
 
 
 ######################################################
@@ -994,46 +1033,46 @@ async def _acquire_send_pipe(pipeline, params, user_id, session_id, board, seria
 
 
 
-######################################################
-def get_user_database(user_id):
-    """
-    Retrieve all user data by user ID.
+# ######################################################
+# def get_user_database(user_id):
+#     """
+#     Retrieve all user data by user ID.
 
-    This function sends a GET request to the server to dump all data stored for the specified user ID.     
-    The response data is decrypted using AES before returning the user data.
+#     This function sends a GET request to the server to dump all data stored for the specified user ID.     
+#     The response data is decrypted using AES before returning the user data.
 
-    Args:     
-        **user_id** (*str*): The unique identifier of the user to retrieve.
+#     Args:     
+#         **user_id** (*str*): The unique identifier of the user to retrieve.
 
-    Returns:     
-        *None*: A zip file contaning all data as JSON files, None otherwise.
+#     Returns:     
+#         *None*: A zip file contaning all data as JSON files, None otherwise.
 
-    Example:
-    ```
-    user_data = get_user_database("1234567890")
-    if user_data:
-        print(f"User data: {user_data}")
-    else:
-        print("User not found.")
-    ```
-    """
-    url = f"{BASE_URL}/api/{VERSION}/database/dump/{user_id}"
+#     Example:
+#     ```
+#     user_data = get_user_database("1234567890")
+#     if user_data:
+#         print(f"User data: {user_data}")
+#     else:
+#         print("User not found.")
+#     ```
+#     """
+#     url = f"{BASE_URL}/api/{VERSION}/database/dump/{user_id}"
 
-    response = requests.get(url, headers={'X-User-ID': user_id}, stream=True)
+#     response = requests.get(url, headers={'X-User-ID': user_id}, stream=True)
 
-    if response.status_code == 200:
-        # Open a local file with write-binary mode
-        strtime = dt.now().strftime("%Y%m%d_%H%M%S")
+#     if response.status_code == 200:
+#         # Open a local file with write-binary mode
+#         strtime = dt.now().strftime("%Y%m%d_%H%M%S")
 
-        with open(f"brainos_{strtime}_dump.zip", 'wb') as file:
-            # Write the response content to the file in chunks
-            for chunk in response.iter_content(chunk_size=8192):
-                file.write(chunk)
-        print("Database dump saved successfully.")
-        return True
-    else:
-        print("User not found:", response.text)
-        return None
+#         with open(f"brainos_{strtime}_dump.zip", 'wb') as file:
+#             # Write the response content to the file in chunks
+#             for chunk in response.iter_content(chunk_size=8192):
+#                 file.write(chunk)
+#         print("Database dump saved successfully.")
+#         return True
+#     else:
+#         print("User not found:", response.text)
+#         return None
 
 
 
@@ -1169,9 +1208,9 @@ def get_tagged_interval_data(user_id, session_id, tag):
 
 
 ######################################################
-def process_session_pipe(pipeline, params, user_id, date, existing_session_id, session_type="", tags=[]):
+def process_session_pipe(pipeline, params, user_id, date, existing_session_id, existing_tagged_interval=None, session_type="", tags=[]):
     """
-    Process a session pipeline with specified parameters and metadata.
+    Process a session data using a pipeline with specified parameters and metadata.
 
     This function processes an existing session by applying a specified pipeline and parameters.
     It sends a POST request to the API with the session metadata and processing parameters,
@@ -1183,6 +1222,7 @@ def process_session_pipe(pipeline, params, user_id, date, existing_session_id, s
         **user_id** (*str*): The user ID (obtained through free registration with HABS).
         **date** (*str*): The date of the session.
         **existing_session_id** (*str*): The ID of the existing session to be processed.
+        **existing_tag** (*str*, optional): The label of an existing tagged interval.
         **session_type** (*str*, optional): The type of the new session. Defaults to an empty string.
         **tags** (*list*, optional): A list of tags associated with the session. Defaults to an empty list.
 
@@ -1211,9 +1251,12 @@ def process_session_pipe(pipeline, params, user_id, date, existing_session_id, s
     }
     if validate_metadata(session_metadata, "sessionSchema"):
         url = f"{BASE_URL}/api/{VERSION}/sessions/{existing_session_id}/pipe/{pipeline}"
+        if existing_tagged_interval:
+            url = f"{BASE_URL}/api/{VERSION}/sessions/{existing_session_id}/pipe/{pipeline}/tagged_interval/{existing_tagged_interval}"
         _session = {
             "metadata": session_metadata,
             "processing_params": params,
+            'processing_tagged_interval':existing_tagged_interval,            
         }
         _session = json.dumps(_session).encode('utf-8')
         aes_key_b64 = os.environ.get('AES_KEY')
