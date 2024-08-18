@@ -136,6 +136,7 @@ class BoardManager(metaclass=SingletonMeta):
             print("Releasing session...")
             self.board.release_session()
             self.board = None
+            # Here callback to notify the API the session is over
 
     def stop_streaming(self):
         if self.board is None:
@@ -218,6 +219,9 @@ class BoardManager(metaclass=SingletonMeta):
             self.stop_streaming()
 
 
+    ###########################################################################
+    # EEG Simulator
+    # 
     def generate_dummy_eeg_data(self, params, buffer_duration):
         # Extract parameters from JSON dictionary
         num_channels = params.get("eeg_channels", 8)

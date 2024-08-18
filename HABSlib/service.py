@@ -1277,17 +1277,17 @@ def process_session_pipe(pipeline, params, user_id, date, existing_session_id, e
             if subscription_response.status_code == 200:
                 if "error" in subscription_response.text:
                     print("Session failed:", subscription_response.text)
-                    return session_id, None
+                    return task_id, None
                 processed_data = subscription_response.json().get('pipeData')
                 return task_id, processed_data
         else:
             print("Session failed:", response.text)
-            return session_id, None
+            return None, None
 
-        return session_id, None 
+        return None, None 
     else:
         print("Session failed.")
-        return False
+        return None, None
 
 
 
