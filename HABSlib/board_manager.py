@@ -196,8 +196,8 @@ class BoardManager(metaclass=SingletonMeta):
                         data_id, proc_data = service(
                             metadata=self.metadata, 
                             data=eeg_data.tolist(), 
-                            # timestamps are assumed to be UTC (but enforced); timedelta is required because the session starts 5secs before the first data is retrieved
-                            timestamps=[(datetime.fromtimestamp(ts, tz=timezone.utc)-timedelta(seconds=5)).timestamp() for ts in timestamps], 
+                            # timestamps are assumed to be UTC (but enforced); timedelta is required because the session starts 'buffer_duration' secs before the first data is retrieved
+                            timestamps=[(datetime.fromtimestamp(ts, tz=timezone.utc)-timedelta(seconds=buffer_duration)).timestamp() for ts in timestamps], 
                             user_id=user_id,
                             ppg_red=ppg_red.tolist(), 
                             ppg_ir=ppg_ir.tolist()
