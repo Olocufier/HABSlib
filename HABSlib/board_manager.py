@@ -136,7 +136,6 @@ class BoardManager(metaclass=SingletonMeta):
             print("Releasing session...")
             self.board.release_session()
             self.board = None
-            # Here callback to notify the API the session is over
 
     def stop_streaming(self):
         if self.board is None:

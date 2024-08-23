@@ -477,6 +477,34 @@ def set_session(metadata, user_id):
         return None
 
 
+
+######################################################
+def end_session(session_id, user_id):
+    """
+    Notify the end of a session.
+
+    This function sends a POST request to notify the server the session (of the provided id) is ended.
+    The metadata is encrypted using AES before being sent to the server.
+
+    Args:     
+        **session_id** (*str*): The session identifier.
+        **user_id** (*str*): The user id (obtained through free registration with HABS)
+
+    Returns:      
+        *str*: The unique identifier of the ended session if successful, None otherwise.
+    """
+    url = f"{BASE_URL}/api/{VERSION}/sessions/{session_id}/end"
+    response = requests.post(url, headers={'X-User-ID': user_id})  # mongo _id for the user document. Communicated at user creation.
+
+    if response.status_code == 200:
+        print("Session successfully ended.")
+        return session_id
+    else:
+        print("Session ending failed:", response.text)
+        return None
+
+
+
 ######################################################
 def get_data_by_id(data_id, user_id):
     """
@@ -749,6 +777,10 @@ def acquire_send_raw(user_id, date, board, serial_number, stream_duration, buffe
         asyncio.run( 
             _acquire_send_raw(user_id, session_id, board, serial_number, stream_duration, buffer_duration, callback, extra) 
         )
+        
+        # Here send request to notify the endo of the session
+        end_session(session_id=session_id, user_id=user_id)
+
         return session_id
     else:
         print("Session initialization failed.")
@@ -1006,6 +1038,10 @@ def acquire_send_pipe(pipeline, params, user_id, date, board, serial_number, str
         asyncio.run( 
             _acquire_send_pipe(pipeline, params, user_id, session_id, board, serial_number, stream_duration, buffer_duration, callback, extra) 
         )
+        
+        # Here send request to notify the endo of the session
+        end_session(session_id=session_id, user_id=user_id)
+
         return session_id #, self.processed_data
     else:
         print("Session initialization failed.")
@@ -1267,7 +1303,7 @@ def process_session_pipe(pipeline, params, user_id, date, existing_session_id, e
             headers={'Content-Type': 'application/octet-stream', 'X-User-ID':user_id}
         )
         if response.status_code == 200:
-            print("Session successfully created.")
+            print("Session successfully created. Requesting results ...")
             session_id = response.json().get('session_id')
             task_id = response.json().get('task_id')
             # print(session_id)
