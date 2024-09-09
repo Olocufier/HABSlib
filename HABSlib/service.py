@@ -989,13 +989,18 @@ def upload_pipedata(metadata, timestamps, user_id, data, ppg_red, ppg_ir):
         headers={'Content-Type': 'application/octet-stream', 'X-User-ID':user_id}
     )
 
+    # subscribe to response
     if response.status_code == 200:
         print('.', end='', flush=True)
-        # Extract the unique identifier for the uploaded data
-        data_id = response.json().get('data_id')
-        # Retrieve the processed data
-        data = response.json().get('pipeData')
-        return data_id, data
+        task_id = response.json().get('task_id')
+        # print("task_id: ",task_id)
+        subscription_response = requests.get(f"{BASE_URL}/api/{VERSION}/results/subscribe/{task_id}", headers={'X-User-ID': user_id}, stream=True)
+        if subscription_response.status_code == 200:
+            if "error" in subscription_response.text:
+                print("Session failed:", subscription_response.text)
+                return task_id, None
+            processed_data = subscription_response.json().get('pipeData')
+            return task_id, processed_data
     else:
         print("Upload failed:", response.text)
         return None
@@ -1031,6 +1036,7 @@ def acquire_send_pipe(pipeline, params, user_id, date, board, serial_number, str
       "session_type": session_type,
       "session_tags": tags
     }
+    print("acquire_send_pipe:",session_metadata)
     if validate_metadata(session_metadata, "sessionSchema"):
         session_id = set_pipe(metadata={**session_metadata}, pipeline=pipeline, params=params, user_id=user_id)
         print("\nSession initialized. You can visualize it here:\n ", "https://habs.ai/bos/live.html?session_id="+str(session_id), "\n")
