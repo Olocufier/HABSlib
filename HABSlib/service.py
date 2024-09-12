@@ -162,7 +162,7 @@ def head():
     print("   ▒▒▒▒     ▒▒▒▒  ░▒▒▒▒   ▒▒▒▒░  ▒▒▒▒     ░▒▒▒▒ ░▒░     ░▒▒▒░ ")
     print("   ▒▒▒▒     ▒▒▒▒ ░▒▒▒▒     ▒▒▒▒░ ▒▒▒▒▒▒▒▒▒▒▒▒░   ░▒▒▒▒▒▒▒▒▒░  ")
     print("   ---------------------------------------------------------- ")
-    print("   version:", version("HABSlib"))
+    print("   HABSlib version:", version("HABSlib"))
     print()
 
 
@@ -845,13 +845,14 @@ def send_file(user_id, date, edf_file, ch_nrs=None, ch_names=None, session_type=
 
         session_metadata = {
           "user_id": user_id, # add user to the session for reference
-          "session_date": header['startdate'].strftime("%m/%d/%Y, %H:%M:%S"),
+          "session_date": str(header['startdate'].strftime("%m/%d/%Y, %H:%M:%S")),
           "session_type": session_type,
           "session_tags": tags
         }
         if validate_metadata(session_metadata, "sessionSchema"):
             session_id = set_session(metadata={**session_metadata}, user_id=user_id)
-            metadata = {'session_id':session_id, **session_metadata, **convert_datetime_in_dict(header), **convert_datetime_in_dict(signal_headers[0])}
+            header['startdate'] = str(header['startdate'])
+            metadata = {'session_id':session_id, **session_metadata, **header, **signal_headers[0]}
 
             chunks = ((signals.size * signals.itemsize)//300000)+1
             timestamps_chunks = np.array_split(timestamps, chunks)
@@ -1312,16 +1313,21 @@ def process_session_pipe(pipeline, params, user_id, date, existing_session_id, e
             print("Session successfully created. Requesting results ...")
             session_id = response.json().get('session_id')
             task_id = response.json().get('task_id')
-            # print(session_id)
-            # print("task_id: ",task_id)
-            # return session_id, task_id
-            subscription_response = requests.get(f"{BASE_URL}/api/{VERSION}/results/subscribe/{task_id}", headers={'X-User-ID': user_id}, stream=True)
+            print("session_id: ",session_id)
+            print("task_id: ",task_id)
+            subscription_response = requests.get(
+                f"{BASE_URL}/api/{VERSION}/results/subscribe/{task_id}", 
+                headers={'X-User-ID': user_id}, 
+                stream=True
+            )
             if subscription_response.status_code == 200:
                 if "error" in subscription_response.text:
                     print("Session failed:", subscription_response.text)
                     return task_id, None
                 processed_data = subscription_response.json().get('pipeData')
                 return task_id, processed_data
+            else:
+                print("Session failed:", subscription_response.status_code, subscription_response.text)
         else:
             print("Session failed:", response.text)
             return None, None
