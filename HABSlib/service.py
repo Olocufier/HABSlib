@@ -1007,6 +1007,9 @@ def upload_pipedata(metadata, timestamps, user_id, data, ppg_red, ppg_ir):
         return None
 
 
+
+
+
 ######################################################
 def acquire_send_pipe(pipeline, params, user_id, date, board, serial_number, stream_duration, buffer_duration, session_type="", tags=[], callback=None, extra=None):
     """
@@ -1049,7 +1052,7 @@ def acquire_send_pipe(pipeline, params, user_id, date, board, serial_number, str
         # Here send request to notify the endo of the session
         end_session(session_id=session_id, user_id=user_id)
 
-        return session_id #, self.processed_data
+        return session_id
     else:
         print("Session initialization failed.")
         return False
@@ -1063,7 +1066,6 @@ async def _acquire_send_pipe(pipeline, params, user_id, session_id, board, seria
     board_manager.connect()
 
     board_manager.metadata['session_id'] = session_id # add session to the data for reference
-
     # stream_duration sec, buffer_duration sec
     await board_manager.data_acquisition_loop(
         stream_duration=stream_duration, 
@@ -1072,50 +1074,6 @@ async def _acquire_send_pipe(pipeline, params, user_id, session_id, board, seria
         user_id=user_id,
         callback=callback
     )
-
-
-
-
-# ######################################################
-# def get_user_database(user_id):
-#     """
-#     Retrieve all user data by user ID.
-
-#     This function sends a GET request to the server to dump all data stored for the specified user ID.     
-#     The response data is decrypted using AES before returning the user data.
-
-#     Args:     
-#         **user_id** (*str*): The unique identifier of the user to retrieve.
-
-#     Returns:     
-#         *None*: A zip file contaning all data as JSON files, None otherwise.
-
-#     Example:
-#     ```
-#     user_data = get_user_database("1234567890")
-#     if user_data:
-#         print(f"User data: {user_data}")
-#     else:
-#         print("User not found.")
-#     ```
-#     """
-#     url = f"{BASE_URL}/api/{VERSION}/database/dump/{user_id}"
-
-#     response = requests.get(url, headers={'X-User-ID': user_id}, stream=True)
-
-#     if response.status_code == 200:
-#         # Open a local file with write-binary mode
-#         strtime = dt.now().strftime("%Y%m%d_%H%M%S")
-
-#         with open(f"brainos_{strtime}_dump.zip", 'wb') as file:
-#             # Write the response content to the file in chunks
-#             for chunk in response.iter_content(chunk_size=8192):
-#                 file.write(chunk)
-#         print("Database dump saved successfully.")
-#         return True
-#     else:
-#         print("User not found:", response.text)
-#         return None
 
 
 
@@ -1233,23 +1191,6 @@ def get_tagged_interval_data(user_id, session_id, tag):
 
 
 
-# ######################################################
-# def sse_request(url, keyword):
-#     with requests.get(url, stream=True) as response:
-#         if response.status_code == 200:
-#             client = response.iter_lines()
-#             for line in client:
-#                 if line:
-#                     # SSE messages start with "data: ", so we remove that part
-#                     if line.decode("utf-8").startswith(f"{keyword}:"):
-#                         payload = line.decode("utf-8")[len(keyword)+1:]
-#                         print("Received event:", payload)
-#                         return payload
-#         else:
-#             print(f"Failed to connect: {response.status_code}")
-
-
-
 ######################################################
 def process_session_pipe(pipeline, params, user_id, date, existing_session_id, existing_tagged_interval=None, session_type="", tags=[]):
     """
@@ -1313,8 +1254,8 @@ def process_session_pipe(pipeline, params, user_id, date, existing_session_id, e
             print("Session successfully created. Requesting results ...")
             session_id = response.json().get('session_id')
             task_id = response.json().get('task_id')
-            print("session_id: ",session_id)
-            print("task_id: ",task_id)
+            # print("session_id: ",session_id)
+            # print("task_id: ",task_id)
             subscription_response = requests.get(
                 f"{BASE_URL}/api/{VERSION}/results/subscribe/{task_id}", 
                 headers={'X-User-ID': user_id}, 
