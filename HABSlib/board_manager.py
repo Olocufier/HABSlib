@@ -40,7 +40,7 @@ class SingletonMeta(type):
 
 class BoardManager(metaclass=SingletonMeta):
 
-    def __init__( self, enable_logger, board_id="SYNTHETIC", serial_number="MuseS-88D1", extra=None ):
+    def __init__( self, enable_logger, board_id="SYNTHETIC", serial_number="MuseS-88D1", serial_port=None, extra=None ):
         if not hasattr(self, 'initialized'):  # Prevent re-initialization
             self.board = None
             self.preset = None
@@ -57,6 +57,14 @@ class BoardManager(metaclass=SingletonMeta):
             elif board_id == "MUSE_S":
                 self.board_id = BoardIds.MUSE_S_BOARD.value
                 self.preset = BrainFlowPresets.ANCILLARY_PRESET
+
+            elif board_id == "CYTON_DAISY_BOARD":
+                self.board_id = BoardIds.CYTON_DAISY_BOARD
+                self.params.serial_port = serial_port #"/dev/cu.usbserial-DP04WFWZ"
+            elif board_id == "CYTON_BOARD":
+                self.board_id = BoardIds.CYTON_BOARD
+                self.params.serial_port = serial_port
+
             else:
                 self.board_id = BoardIds.SYNTHETIC_BOARD
                 self.params.serial_number = ""

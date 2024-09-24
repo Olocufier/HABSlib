@@ -49,7 +49,6 @@ import json
 import jsonschema
 from jsonschema import validate
 from jsonschema import exceptions
-# from bson import json_util
 
 import numpy as np
 
@@ -608,17 +607,20 @@ def get_data_by_session(session_id, user_id):
         print("Failed to retrieve data.")
     ```
     """
-    url = f"{BASE_URL}/api/{VERSION}/sessions/{session_id}/rawdata"
-    
-    # response = requests.get(url)
-    response = requests.get(url, headers={'X-User-ID':user_id}) # mongo _id for the user document. Communicated at user creation.
-    
-    if response.status_code == 200:
-        print("Retrieved data successfully.")
-        # decrypt
-        return response.json().get('data')
+    if session_id:
+        url = f"{BASE_URL}/api/{VERSION}/sessions/{session_id}/rawdata"
+        
+        # response = requests.get(url)
+        response = requests.get(url, headers={'X-User-ID':user_id}) # mongo _id for the user document. Communicated at user creation.
+        
+        if response.status_code == 200:
+            print("Retrieved data successfully.")
+            # decrypt
+            return response.json().get('data')
+        else:
+            print("Failed to retrieve data:", response.text)
     else:
-        print("Failed to retrieve data:", response.text)
+        print("Invalid session_id.")
 
 
 
@@ -647,17 +649,20 @@ def get_data_ids_by_session(session_id, user_id):
         print("Failed to retrieve data IDs.")
     ```
     """
-    url = f"{BASE_URL}/api/{VERSION}/sessions/{session_id}/ids"
-    
-    # response = requests.get(url)
-    response = requests.get(url, headers={'X-User-ID':user_id}) # mongo _id for the user document. Communicated at user creation.
-    
-    if response.status_code == 200:
-        print("Retrieved ids successfully.")
-        # decrypt
-        return response.json().get('ids')
+    if session_id:
+        url = f"{BASE_URL}/api/{VERSION}/sessions/{session_id}/ids"
+        
+        # response = requests.get(url)
+        response = requests.get(url, headers={'X-User-ID':user_id}) # mongo _id for the user document. Communicated at user creation.
+        
+        if response.status_code == 200:
+            print("Retrieved ids successfully.")
+            # decrypt
+            return response.json().get('ids')
+        else:
+            print("Failed to retrieve ids:", response.text)
     else:
-        print("Failed to retrieve ids:", response.text)
+        print("Invalid session_id.")
 
 
 
@@ -730,7 +735,7 @@ def upload_data(metadata, timestamps, user_id, data, ppg_red, ppg_ir):
 
 
 ######################################################
-def acquire_send_raw(user_id, date, board, serial_number, stream_duration, buffer_duration, session_type="", tags=[], callback=None, extra=None):
+def acquire_send_raw(user_id, date, board, serial_number, serial_port, stream_duration, buffer_duration, session_type="", tags=[], callback=None, extra=None):
     """
     Asynchronously acquires raw data from a specific EEG board and sends it to the server.
 
@@ -773,23 +778,27 @@ def acquire_send_raw(user_id, date, board, serial_number, stream_duration, buffe
     session_id = set_session(metadata={**session_metadata}, user_id=user_id)
     print("\nSession initialized. You can visualize it here:\n ", "https://habs.ai/live.html?session_id="+str(session_id), "\n")
 
-    if validate_metadata(session_metadata, "sessionSchema"):
-        asyncio.run( 
-            _acquire_send_raw(user_id, session_id, board, serial_number, stream_duration, buffer_duration, callback, extra) 
-        )
-        
-        # Here send request to notify the endo of the session
-        end_session(session_id=session_id, user_id=user_id)
+    if session_id:
+        if validate_metadata(session_metadata, "sessionSchema"):
+            asyncio.run( 
+                _acquire_send_raw(user_id, session_id, board, serial_number, serial_port, stream_duration, buffer_duration, callback, extra) 
+            )
+            
+            # Here send request to notify the endo of the session
+            end_session(session_id=session_id, user_id=user_id)
 
-        return session_id
+            return session_id
+        else:
+            print("Session initialization failed.")
+            return False
     else:
         print("Session initialization failed.")
         return False
 
 # async appendage
-async def _acquire_send_raw(user_id, session_id, board, serial_number, stream_duration, buffer_duration, callback=None, extra=None):
+async def _acquire_send_raw(user_id, session_id, board, serial_number, serial_port, stream_duration, buffer_duration, callback=None, extra=None):
     # get board
-    board_manager = BoardManager(enable_logger=False, board_id=board, serial_number=serial_number, extra=extra)
+    board_manager = BoardManager(enable_logger=False, board_id=board, serial_number=serial_number, serial_port=serial_port, extra=extra)
     if board=="SYNTHETIC":
         board_manager.assign_extra(extra)
     board_manager.connect()
@@ -875,6 +884,217 @@ def send_file(user_id, date, edf_file, ch_nrs=None, ch_names=None, session_type=
 
 ######################################################
 ######################################################
+#   SERVICES
+######################################################
+######################################################
+
+def acquire_send_service(service_name, user_id, date, board, serial_number, serial_port, stream_duration, buffer_duration, session_type="", tags=[], callback=None, extra=None):
+    """
+    Acquires data from a board, sends it to Cognitive OS, which processes it according to the specified service.
+    This function handles setting up a session for data acquisition and processing, connects to a board, 
+    and manages the data flow from acquisition through processing to uploading. It uses an asynchronous loop
+    to handle the operations efficiently, suitable for real-time data processing scenarios.
+
+    Args:
+    **service_name** (*str*): Name of the service as from the Cognitive OS list.      
+    **user_id** (*str*): The user ID to which the session will be associated.      
+    **date** (*str*): Date of the session for tracking purposes.      
+    **board** (*int*): Identifier for the hardware board to use for data acquisition.      
+    **stream_duration** (*int*): Duration in seconds to stream data from the board.     
+    **buffer_duration** (*int*): Duration in seconds to buffer data before processing.      
+    **callback** (*function*): Optional callback function to execute with the processed data.
+
+    Returns:    
+        *str* or *bool*: The session ID if successful, False otherwise.
+
+    """
+    # set session for the data
+    # We set a session id for the current interaction with the API (even if we fail to get the board, it will be important to store the failure)
+    session_metadata = {
+      "user_id": user_id, # add user to the session for reference
+      "session_date": date,
+      "session_type": session_type,
+      "session_tags": tags
+    }
+    print("acquire_send_service:",session_metadata)
+    if validate_metadata(session_metadata, "sessionSchema"):
+        session_id = set_service(service_name=service_name, metadata={**session_metadata}, user_id=user_id)
+        print("\nSession initialized. You can visualize it here:\n ", "https://habs.ai/CognitiveOS/live.html?session_id="+str(session_id), "\n")
+
+        if session_id:
+            asyncio.run( 
+                _acquire_send_service(service_name, user_id, session_id, board, serial_number, serial_port, stream_duration, buffer_duration, callback, extra) 
+            )
+            
+            # Here send request to notify the endo of the session
+            end_session(session_id=session_id, user_id=user_id)
+
+            return session_id
+        else:
+            print("Session initialization failed.")
+            return False
+    else:
+        print("Session initialization failed.")
+        return False
+
+# async appendage
+async def _acquire_send_service(service_name, user_id, session_id, board, serial_number, serial_port, stream_duration, buffer_duration, callback=None, extra=None):
+    # get board
+    board_manager = BoardManager(enable_logger=False, board_id=board, serial_number=serial_number, serial_port=serial_port, extra=extra)
+    if board=="SYNTHETIC":
+        board_manager.assign_extra(extra)
+    board_manager.connect()
+
+    board_manager.metadata['session_id'] = session_id # add session to the data for reference
+    # stream_duration sec, buffer_duration sec
+    await board_manager.data_acquisition_loop(
+        stream_duration=stream_duration, 
+        buffer_duration=buffer_duration, 
+        service=upload_servicedata,
+        user_id=user_id,
+        callback=callback
+    )
+
+
+
+
+def set_service(service_name, metadata, user_id):
+    """
+    Configures and initiates a session on the Cognitive OS for a service.
+
+    This function sends metadata to a specified service endpoint to create a data processing session. 
+    It encrypts the session data before sending to ensure security. 
+    The function checks the server response to confirm the session creation.
+
+    Args:     
+    **service_name** (*str*): Name of the service as from the Cognitive OS list.      
+    **metadata** (*dict*): A dictionary containing metadata about the session, including
+                     details such as user ID and session date.       
+    **user_id** (*str*): The user id (obtained through free registration with HABS)
+
+    Returns:       
+        *str* or *None*: The session ID if the session is successfully created, or None if the operation fails.
+
+    Raises:     
+        **requests.exceptions.RequestException**: An error from the Requests library when an HTTP request fails.      
+        **KeyError**: If necessary keys are missing in the environment variables.
+
+    Example:
+    ```
+    session_metadata = {"user_id": "123", "session_date": "2024-06-03"}
+    processing_params = {"filter_type": "lowpass", "cutoff_freq": 30}
+    session_id = set_service(session_metadata, user_id='3284682750346')
+    if session_id:
+        print(f"Service session created with ID: {session_id}")
+    else:
+        print("Failed to create service session")
+    ```
+    """
+    url = f"{BASE_URL}/api/{VERSION}/services/{service_name}"
+    _session = {
+        "metadata": metadata,
+        "user_id": user_id
+    }
+    _session = json.dumps(_session).encode('utf-8')
+    aes_key_b64 = os.environ.get('AES_KEY')
+    aes_key_bytes = base64.b64decode(aes_key_b64)
+    response = requests.post(
+        url,
+        data=encrypt_message(_session, aes_key_bytes),
+        headers={'Content-Type': 'application/octet-stream', 'X-User-ID':user_id}
+    )
+    if response.status_code == 200:
+        print("Session successfully created.")
+        # Extract the unique identifier for the uploaded data
+        session_id = response.json().get('session_id')
+        # print(session_id)
+        return session_id
+    else:
+        print("Session failed:", response.text)
+        return None
+
+
+
+
+def upload_servicedata(metadata, timestamps, user_id, data, ppg_red, ppg_ir):
+    """
+    Uploads data to a specific session on the server.
+
+    This function is responsible for uploading various data streams associated with a session, 
+    including timestamps and physiological measurements. The data is encrypted before
+    sending to ensure confidentiality and integrity.
+
+    Args:        
+    **metadata** (*dict*): Contains session-related metadata including the session ID.      
+    **timestamps** (*list*): A list of timestamps corresponding to each data point.      
+    **user_id** (*str*): The user id (obtained through free registration with HABS)
+    **data** (*list*): The main data collected, e.g., EEG readings.      
+    **ppg_red** (*list*): Red channel data from a PPG sensor.    
+    **ppg_ir** (*list*): Infrared channel data from a PPG sensor.     
+
+    Returns:     
+    *tuple*: A tuple containing the data ID if the upload is successful and the processed data, or None if the upload fails.
+
+    Raises:     
+    **requests.exceptions.RequestException: An error from the Requests library when an HTTP request fails.
+    **KeyError**: If necessary keys are missing in the environment variables.
+
+    Example:
+    ```
+    session_metadata = {"session_id": "12345"}
+    timestamps = [1597709165, 1597709166, ...]
+    data = [0.1, 0.2, ...]
+    ppg_red = [12, 15, ...]
+    ppg_ir = [20, 22, ...]
+    data_id, processed_data = upload_servicedata(session_metadata, timestamps, data, ppg_red, ppg_ir)
+    if data_id:
+        print(f"Data uploaded successfully with ID: {data_id}")
+    else:
+        print("Failed to upload data")
+    ```
+    """
+    url = f"{BASE_URL}/api/{VERSION}/servicedata/{metadata['session_id']}" # the metadata contain session_id to consistently pass it with each upload
+
+    _data = {
+        "metadata": metadata,
+        "timestamps": timestamps,
+        "data": data,
+        "ppg_red": ppg_red,
+        "ppg_ir": ppg_ir
+    }
+    _data = json.dumps(_data).encode('utf-8')
+    aes_key_b64 = os.environ.get('AES_KEY')
+    aes_key_bytes = base64.b64decode(aes_key_b64)
+    response = requests.post(
+        url,
+        data=encrypt_message(_data, aes_key_bytes),
+        headers={'Content-Type': 'application/octet-stream', 'X-User-ID':user_id}
+    )
+
+    # subscribe to response
+    if response.status_code == 200:
+        print('.', end='', flush=True)
+        task_id = response.json().get('task_id')
+        # print("task_id: ",task_id)
+        subscription_response = requests.get(f"{BASE_URL}/api/{VERSION}/results/subscribe/{task_id}", headers={'X-User-ID': user_id}, stream=True)
+        if subscription_response.status_code == 200:
+            if "error" in subscription_response.text:
+                print("Session failed:", subscription_response.text)
+                return task_id, None
+            processed_data = subscription_response.json().get('pipeData')
+            return task_id, processed_data
+    else:
+        print("Upload failed:", response.text)
+        return None
+
+
+
+
+######################################################
+######################################################
+#   PROCESSING PIPE
+######################################################
+######################################################
 def set_pipe(metadata, pipeline, params, user_id):
     """
     Configures and initiates a data processing pipeline for a session on the server.
@@ -934,10 +1154,10 @@ def set_pipe(metadata, pipeline, params, user_id):
 
 
 
-######################################################
+
 def upload_pipedata(metadata, timestamps, user_id, data, ppg_red, ppg_ir):
     """
-    Uploads processed data to a specific session on the server.
+    Uploads data to a specific session on the server.
 
     This function is responsible for uploading various data streams associated with a session, including
     timestamps and physiological measurements such as PPG (Photoplethysmogram). The data is encrypted before
@@ -1009,11 +1229,9 @@ def upload_pipedata(metadata, timestamps, user_id, data, ppg_red, ppg_ir):
 
 
 
-
-######################################################
-def acquire_send_pipe(pipeline, params, user_id, date, board, serial_number, stream_duration, buffer_duration, session_type="", tags=[], callback=None, extra=None):
+def acquire_send_pipe(pipeline, params, user_id, date, board, serial_number, serial_port, stream_duration, buffer_duration, session_type="", tags=[], callback=None, extra=None):
     """
-    Acquires data from a board, processes it according to a specified pipeline, and sends it to a server.
+    Acquires data from a board, sends it to Cognitive OS, which processes it according to the specified pipeline.
     This function handles setting up a session for data acquisition and processing, connects to a board, 
     and manages the data flow from acquisition through processing to uploading. It uses an asynchronous loop
     to handle the operations efficiently, suitable for real-time data processing scenarios.
@@ -1045,22 +1263,26 @@ def acquire_send_pipe(pipeline, params, user_id, date, board, serial_number, str
         session_id = set_pipe(metadata={**session_metadata}, pipeline=pipeline, params=params, user_id=user_id)
         print("\nSession initialized. You can visualize it here:\n ", "https://habs.ai/bos/live.html?session_id="+str(session_id), "\n")
 
-        asyncio.run( 
-            _acquire_send_pipe(pipeline, params, user_id, session_id, board, serial_number, stream_duration, buffer_duration, callback, extra) 
-        )
-        
-        # Here send request to notify the endo of the session
-        end_session(session_id=session_id, user_id=user_id)
+        if session_id:
+            asyncio.run( 
+                _acquire_send_pipe(pipeline, params, user_id, session_id, board, serial_number, serial_port, stream_duration, buffer_duration, callback, extra) 
+            )
+            
+            # Here send request to notify the endo of the session
+            end_session(session_id=session_id, user_id=user_id)
 
-        return session_id
+            return session_id
+        else:
+            print("Session initialization failed.")
+            return False
     else:
         print("Session initialization failed.")
         return False
 
 # async appendage
-async def _acquire_send_pipe(pipeline, params, user_id, session_id, board, serial_number, stream_duration, buffer_duration, callback=None, extra=None):
+async def _acquire_send_pipe(pipeline, params, user_id, session_id, board, serial_number, serial_port, stream_duration, buffer_duration, callback=None, extra=None):
     # get board
-    board_manager = BoardManager(enable_logger=False, board_id=board, serial_number=serial_number, extra=extra)
+    board_manager = BoardManager(enable_logger=False, board_id=board, serial_number=serial_number, serial_port=serial_port, extra=extra)
     if board=="SYNTHETIC":
         board_manager.assign_extra(extra)
     board_manager.connect()
@@ -1078,6 +1300,10 @@ async def _acquire_send_pipe(pipeline, params, user_id, session_id, board, seria
 
 
 
+######################################################
+######################################################
+#   TAGGING
+######################################################
 ######################################################
 def create_tagged_interval(user_id, session_id, start_time, end_time, tags, channel_ids=None):
     """
@@ -1112,37 +1338,39 @@ def create_tagged_interval(user_id, session_id, start_time, end_time, tags, chan
         print("Tagged interval creation failed.")
     ```
     """
-    url = f"{BASE_URL}/api/{VERSION}/session/{session_id}/tag"
-    interval_data = {
-        "user_id": user_id,
-        "session_id": session_id,
-        "start_time": start_time,
-        "end_time": end_time,
-        "tags": tags,
-        "channel_ids": channel_ids if channel_ids else []
-    }
-    
-    if validate_metadata(interval_data, "tagSchema"):
-        response = requests.post(
-            url,
-            json=interval_data,
-            headers={'Content-Type': 'application/json'}
-        )
+    if session_id:
+        url = f"{BASE_URL}/api/{VERSION}/session/{session_id}/tag"
+        interval_data = {
+            "user_id": user_id,
+            "session_id": session_id,
+            "start_time": start_time,
+            "end_time": end_time,
+            "tags": tags,
+            "channel_ids": channel_ids if channel_ids else []
+        }
+        
+        if validate_metadata(interval_data, "tagSchema"):
+            response = requests.post(
+                url,
+                json=interval_data,
+                headers={'Content-Type': 'application/json'}
+            )
 
-        if response.status_code == 201:
-            print("Tagged interval successfully created.")
-            interval_id = response.json().get('interval_id')
-            return interval_id
+            if response.status_code == 201:
+                print("Tagged interval successfully created.")
+                interval_id = response.json().get('interval_id')
+                return interval_id
+            else:
+                print("Tagged interval creation failed:", response.text)
+                return None
         else:
-            print("Tagged interval creation failed:", response.text)
-            return None
+            print("Tagged interval creation failed due to validation error.")
     else:
-        print("Tagged interval creation failed due to validation error.")
+        print("Invalid session_id.")
 
 
 
 
-######################################################
 def get_tagged_interval_data(user_id, session_id, tag):
     """
     Retrieves data for a specific tagged interval from the server.
@@ -1173,20 +1401,23 @@ def get_tagged_interval_data(user_id, session_id, tag):
         print("Failed to retrieve data for the specified tag.")
     ```
     """
-    url = f"{BASE_URL}/api/{VERSION}/session/{session_id}/tag/{tag}"
+    if session_id:
+        url = f"{BASE_URL}/api/{VERSION}/session/{session_id}/tag/{tag}"
 
-    response = requests.get(
-        url,
-        headers={'Content-Type': 'application/json', 'X-User-ID': user_id}
-    )
+        response = requests.get(
+            url,
+            headers={'Content-Type': 'application/json', 'X-User-ID': user_id}
+        )
 
-    if response.status_code == 200:
-        data = response.json().get('data')
-        print(f"Successfully retrieved data for tag '{tag}'.")
-        return data
+        if response.status_code == 200:
+            data = response.json().get('data')
+            print(f"Successfully retrieved data for tag '{tag}'.")
+            return data
+        else:
+            print(f"Failed to retrieve data: {response.text}")
+            return None
     else:
-        print(f"Failed to retrieve data: {response.text}")
-        return None
+        print("Invalid session_id.")
 
 
 
@@ -1226,57 +1457,60 @@ def process_session_pipe(pipeline, params, user_id, date, existing_session_id, e
         Exception: If there is an error in the request or response.
 
     """
-    session_metadata = {
-      "user_id": user_id, # add user to the session for reference
-      "session_date": date, # .strftime("%m/%d/%Y, %H:%M:%S"),
-      "existing_session_id": existing_session_id,
-      "session_type": f"[On {existing_session_id}]: {session_type}", # type of the new session
-      "session_tags": tags
-    }
-    if validate_metadata(session_metadata, "sessionSchema"):
-        url = f"{BASE_URL}/api/{VERSION}/sessions/{existing_session_id}/pipe/{pipeline}"
-        if existing_tagged_interval:
-            url = f"{BASE_URL}/api/{VERSION}/sessions/{existing_session_id}/pipe/{pipeline}/tagged_interval/{existing_tagged_interval}"
-        _session = {
-            "metadata": session_metadata,
-            "processing_params": params,
-            'processing_tagged_interval':existing_tagged_interval,            
+    if existing_session_id:
+        session_metadata = {
+          "user_id": user_id, # add user to the session for reference
+          "session_date": date, # .strftime("%m/%d/%Y, %H:%M:%S"),
+          "existing_session_id": existing_session_id,
+          "session_type": f"[On {existing_session_id}]: {session_type}", # type of the new session
+          "session_tags": tags
         }
-        _session = json.dumps(_session).encode('utf-8')
-        aes_key_b64 = os.environ.get('AES_KEY')
-        aes_key_bytes = base64.b64decode(aes_key_b64)
-        response = requests.post(
-            url,
-            data=encrypt_message(_session, aes_key_bytes),
-            headers={'Content-Type': 'application/octet-stream', 'X-User-ID':user_id}
-        )
-        if response.status_code == 200:
-            print("Session successfully created. Requesting results ...")
-            session_id = response.json().get('session_id')
-            task_id = response.json().get('task_id')
-            # print("session_id: ",session_id)
-            # print("task_id: ",task_id)
-            subscription_response = requests.get(
-                f"{BASE_URL}/api/{VERSION}/results/subscribe/{task_id}", 
-                headers={'X-User-ID': user_id}, 
-                stream=True
+        if validate_metadata(session_metadata, "sessionSchema"):
+            url = f"{BASE_URL}/api/{VERSION}/sessions/{existing_session_id}/pipe/{pipeline}"
+            if existing_tagged_interval:
+                url = f"{BASE_URL}/api/{VERSION}/sessions/{existing_session_id}/pipe/{pipeline}/tagged_interval/{existing_tagged_interval}"
+            _session = {
+                "metadata": session_metadata,
+                "processing_params": params,
+                'processing_tagged_interval':existing_tagged_interval,            
+            }
+            _session = json.dumps(_session).encode('utf-8')
+            aes_key_b64 = os.environ.get('AES_KEY')
+            aes_key_bytes = base64.b64decode(aes_key_b64)
+            response = requests.post(
+                url,
+                data=encrypt_message(_session, aes_key_bytes),
+                headers={'Content-Type': 'application/octet-stream', 'X-User-ID':user_id}
             )
-            if subscription_response.status_code == 200:
-                if "error" in subscription_response.text:
-                    print("Session failed:", subscription_response.text)
-                    return task_id, None
-                processed_data = subscription_response.json().get('pipeData')
-                return task_id, processed_data
+            if response.status_code == 200:
+                print("Session successfully created. Requesting results ...")
+                session_id = response.json().get('session_id')
+                task_id = response.json().get('task_id')
+                # print("session_id: ",session_id)
+                # print("task_id: ",task_id)
+                subscription_response = requests.get(
+                    f"{BASE_URL}/api/{VERSION}/results/subscribe/{task_id}", 
+                    headers={'X-User-ID': user_id}, 
+                    stream=True
+                )
+                if subscription_response.status_code == 200:
+                    if "error" in subscription_response.text:
+                        print("Session failed:", subscription_response.text)
+                        return task_id, None
+                    processed_data = subscription_response.json().get('pipeData')
+                    return task_id, processed_data
+                else:
+                    print("Session failed:", subscription_response.status_code, subscription_response.text)
             else:
-                print("Session failed:", subscription_response.status_code, subscription_response.text)
-        else:
-            print("Session failed:", response.text)
-            return None, None
+                print("Session failed:", response.text)
+                return None, None
 
-        return None, None 
+            return None, None 
+        else:
+            print("Session failed.")
+            return None, None
     else:
-        print("Session failed.")
-        return None, None
+        print("Invalid session_id.")
 
 
 
@@ -1348,25 +1582,30 @@ def infer(data_id, params, user_id):
     infer("data_12345", {"param1": "value1", "param2": "value2"})
     ```
     """
-    url = f"{BASE_URL}/api/{VERSION}/infer/{data_id}"
-    _params = {
-        "params": params,
-    }
-    _params = json.dumps(_params).encode('utf-8')
-    # response = requests.post(url, json=_params)
-    aes_key_b64 = os.environ.get('AES_KEY')
-    aes_key_bytes = base64.b64decode(aes_key_b64)
-    response = requests.post(
-        url,
-        data=encrypt_message(_params, aes_key_bytes),
-        headers={'Content-Type': 'application/octet-stream', 'X-User-ID':user_id}
-    )
-    # response = requests.get(url, headers={}) # mongo _id for the user document. Communicated at user creation.
-    
-    if response.status_code == 200:
-        task_id = response.json().get('task_id')
-        print("Published. For future interactions, use task_id:",task_id)
-        return task_id
+    if data_id:
+        url = f"{BASE_URL}/api/{VERSION}/infer/{data_id}"
+        _params = {
+            "params": params,
+        }
+        _params = json.dumps(_params).encode('utf-8')
+        # response = requests.post(url, json=_params)
+        aes_key_b64 = os.environ.get('AES_KEY')
+        aes_key_bytes = base64.b64decode(aes_key_b64)
+        response = requests.post(
+            url,
+            data=encrypt_message(_params, aes_key_bytes),
+            headers={'Content-Type': 'application/octet-stream', 'X-User-ID':user_id}
+        )
+        # response = requests.get(url, headers={}) # mongo _id for the user document. Communicated at user creation.
+        
+        if response.status_code == 200:
+            task_id = response.json().get('task_id')
+            print("Published. For future interactions, use task_id:",task_id)
+            return task_id
+        else:
+            print("Publish failed:", response.text)
+            return None
     else:
-        print("Publish failed:", response.text)
+        print("Invalid data_id")
         return None
+
