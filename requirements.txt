@@ -5,7 +5,7 @@ requests==2.31.0
 scipy==1.13.0
 urllib3==2.2.1
 jsonschema
-cryptography
+cryptography==42.0.8
 bson
 pytest
 pytest-html

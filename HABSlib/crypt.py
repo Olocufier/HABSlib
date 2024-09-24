@@ -47,7 +47,6 @@ def encrypt_aes_key_with_rsa(aes_key, public_key):
 
 
 
-
 def store_public_key(key, env_name='SERVER_PUBLIC_KEY'):
     pem = key.public_bytes(
         encoding=serialization.Encoding.PEM,

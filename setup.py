@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name="HABSlib",
-    version="0.1.52",
+    version="0.1.54",
     author="Domenico Guarino",
     author_email="domenico@habs.ai",
     description="A library for interacting with the HABS BrainOS API.",
@@ -22,7 +22,7 @@ setup(
         "scipy==1.13.0",
         "urllib3==2.2.1",
         "jsonschema",
-        "cryptography",
+        "cryptography==42.0.8",
         "pytest",
         "pytest-html",
         "pytest-order",
