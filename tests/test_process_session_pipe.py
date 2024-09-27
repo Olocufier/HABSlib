@@ -12,9 +12,9 @@ import matplotlib.pyplot as plt
 # % source bos/bin/activate
 # % python HABSlib/test_ghost.py
 
-# hb.handshake(base_url="http://0.0.0.0", user_id='8d60e8693a9560ee57e8eba3')
+hb.handshake(base_url="http://0.0.0.0", user_id='8d60e8693a9560ee57e8eba3')
 # hb.handshake(base_url="http://74.249.61.11", user_id='8d60e8693a9560ee57e8eba3')
-hb.handshake(base_url="http://135.237.144.125", user_id='8d60e8693a9560ee57e8eba3')
+# hb.handshake(base_url="http://135.237.144.125", user_id='8d60e8693a9560ee57e8eba3')
 
 # db.processed_data.aggregate( [{ $project : { x : { $objectToArray : "$$ROOT" } } },{ $unwind : "$x" },{ $group : { _id : null, keys : { $addToSet : "$x.k" } } },] ).toArray()[0].keys.sort()
 

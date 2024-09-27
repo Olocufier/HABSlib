@@ -153,6 +153,9 @@ class BoardManager(metaclass=SingletonMeta):
         self.disconnect()
 
     async def data_acquisition_loop(self, stream_duration, buffer_duration, service, user_id, callback=None):
+        self.data_acquisition(stream_duration, buffer_duration, service, user_id, callback)
+
+    def data_acquisition(self, stream_duration, buffer_duration, service, user_id, callback=None):
         if self.board is None:
             raise Exception("Board not connected!")
         
@@ -224,7 +227,6 @@ class BoardManager(metaclass=SingletonMeta):
             
         finally:
             self.stop_streaming()
-
 
     ###########################################################################
     # EEG Simulator
@@ -336,6 +338,15 @@ class BoardManager(metaclass=SingletonMeta):
         artifact_indices = np.random.choice(total_samples, int(artifact_prob * total_samples), replace=False)
         for channel in range(0, num_channels):
             eeg_data[channel, artifact_indices] -= np.random.uniform(10, 20, len(artifact_indices))
+
+        # Introduce channel Asymmetry
+        if params.get("asymmetry_strength"):
+            asymmetry_band = params.get("asymmetry_band", "Alpha")
+            asymmetry_strength = params.get("asymmetry_strength")
+            asymmetry_channels = params.get("asymmetry_channels", (3,4)) # (3,4) Default: F3 (channel 3) and F4 (channel 4)
+            left_channel, right_channel = asymmetry_channels
+            eeg_data[left_channel] += asymmetry_strength * eeg_data[left_channel]  # Amplify left frontal channel
+            eeg_data[right_channel] -= asymmetry_strength * eeg_data[right_channel]  # Decrease right frontal channel
 
         # Handle sequence if provided
         if sequence:

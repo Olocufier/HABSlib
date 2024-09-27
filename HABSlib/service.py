@@ -165,6 +165,17 @@ def head():
     print()
 
 
+
+
+######################################################
+def singleton_init(board, serial_number, serial_port):
+    board_manager = BoardManager(enable_logger=False, board_id=board, serial_number=serial_number, serial_port=serial_port)
+    # board_manager.connect()
+    # board_manager.disconnect()
+
+
+
+
 ######################################################
 def handshake(base_url, user_id):  
     """
@@ -339,9 +350,9 @@ def search_user_by_mail(user_id, email):
     response = requests.get(url, headers={'X-User-ID':user_id}) # mongo _id for the user document. Communicated at user creation.
 
     if response.status_code == 200:
-        user_id = response.json().get('user_id')
-        print("User found:", user_id)
-        return user_id
+        found_user_id = response.json().get('user_id')
+        print("User found:", found_user_id)
+        return found_user_id
     else:
         print("User not found.", response.text)
         return None
@@ -735,7 +746,7 @@ def upload_data(metadata, timestamps, user_id, data, ppg_red, ppg_ir):
 
 
 ######################################################
-def acquire_send_raw(user_id, date, board, serial_number, serial_port, stream_duration, buffer_duration, session_type="", tags=[], callback=None, extra=None):
+def acquire_send_raw(user_id, date, board, serial_number, serial_port, stream_duration, buffer_duration, session_type="", tags=[], callback=None, extra=None, session_callback=None):
     """
     Asynchronously acquires raw data from a specific EEG board and sends it to the server.
 
@@ -779,6 +790,9 @@ def acquire_send_raw(user_id, date, board, serial_number, serial_port, stream_du
     print("\nSession initialized. You can visualize it here:\n ", "https://habs.ai/live.html?session_id="+str(session_id), "\n")
 
     if session_id:
+        if session_callback:
+            session_callback(session_id)
+            
         if validate_metadata(session_metadata, "sessionSchema"):
             asyncio.run( 
                 _acquire_send_raw(user_id, session_id, board, serial_number, serial_port, stream_duration, buffer_duration, callback, extra) 
@@ -813,6 +827,47 @@ async def _acquire_send_raw(user_id, session_id, board, serial_number, serial_po
         user_id=user_id,
         callback=callback
     )
+
+
+def acquire_eeg_data(user_id, session_id, board, serial_number, serial_port, stream_duration, buffer_duration, callback=None, extra=None):
+    # get board
+    board_manager = BoardManager(enable_logger=False, board_id=board, serial_number=serial_number, serial_port=serial_port, extra=extra)
+    if board=="SYNTHETIC":
+        board_manager.assign_extra(extra)
+    board_manager.connect()
+
+    board_manager.metadata['session_id'] = session_id # add session to the data for reference
+
+    # stream_duration sec, buffer_duration sec
+    board_manager.data_acquisition(
+        stream_duration=stream_duration, 
+        buffer_duration=buffer_duration, 
+        service=upload_data,
+        user_id=user_id,
+        callback=callback
+    )
+
+
+# # threading version
+# def acquire_send_raw(user_id, session_id, board, serial_number, serial_port, stream_duration, buffer_duration, callback=None, extra=None):
+#     # get board
+#     board_manager = BoardManager(enable_logger=False, board_id=board, serial_number=serial_number, serial_port=serial_port, extra=extra)
+#     if board=="SYNTHETIC":
+#         board_manager.assign_extra(extra)
+#     board_manager.connect()
+
+#     board_manager.metadata['session_id'] = session_id # add session to the data for reference
+
+#     # stream_duration sec, buffer_duration sec
+#     board_manager.data_acquisition(
+#         stream_duration=stream_duration, 
+#         buffer_duration=buffer_duration, 
+#         service=upload_data,
+#         user_id=user_id,
+#         callback=callback
+#     )
+
+
 
 
 
@@ -919,9 +974,9 @@ def acquire_send_service(service_name, user_id, date, board, serial_number, seri
     print("acquire_send_service:",session_metadata)
     if validate_metadata(session_metadata, "sessionSchema"):
         session_id = set_service(service_name=service_name, metadata={**session_metadata}, user_id=user_id)
-        print("\nSession initialized. You can visualize it here:\n ", "https://habs.ai/CognitiveOS/live.html?session_id="+str(session_id), "\n")
-
         if session_id:
+            print("\nSession initialized. You can visualize it here:\n ", "https://habs.ai/CognitiveOS/live.html?session_id="+str(session_id), "\n")
+
             asyncio.run( 
                 _acquire_send_service(service_name, user_id, session_id, board, serial_number, serial_port, stream_duration, buffer_duration, callback, extra) 
             )
@@ -1261,9 +1316,9 @@ def acquire_send_pipe(pipeline, params, user_id, date, board, serial_number, ser
     print("acquire_send_pipe:",session_metadata)
     if validate_metadata(session_metadata, "sessionSchema"):
         session_id = set_pipe(metadata={**session_metadata}, pipeline=pipeline, params=params, user_id=user_id)
-        print("\nSession initialized. You can visualize it here:\n ", "https://habs.ai/bos/live.html?session_id="+str(session_id), "\n")
-
         if session_id:
+            print("\nSession initialized. You can visualize it here:\n ", "https://habs.ai/bos/live.html?session_id="+str(session_id), "\n")
+
             asyncio.run( 
                 _acquire_send_pipe(pipeline, params, user_id, session_id, board, serial_number, serial_port, stream_duration, buffer_duration, callback, extra) 
             )

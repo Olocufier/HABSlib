@@ -12,9 +12,9 @@ import HABSlib as hb
 # % source bos/bin/activate
 # % python HABSlib/test_ghost.py
 
-# hb.handshake(base_url="http://0.0.0.0", user_id='8d60e8693a9560ee57e8eba3')
+hb.handshake(base_url="http://0.0.0.0", user_id='8d60e8693a9560ee57e8eba3')
 # hb.handshake(base_url="http://74.249.61.11", user_id='8d60e8693a9560ee57e8eba3')
-hb.handshake(base_url="http://135.237.144.125", user_id='8d60e8693a9560ee57e8eba3')
+# hb.handshake(base_url="http://135.237.144.125", user_id='8d60e8693a9560ee57e8eba3')
 
 # Recommended use of UTC timezone (standard in BrainOS)
 sessiondate = dt.datetime.now(timezone.utc)
