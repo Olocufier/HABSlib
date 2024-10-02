@@ -5,6 +5,7 @@ from brainflow.board_shim import BrainFlowPresets
 from brainflow.data_filter import DataFilter
 
 import asyncio
+import sys
 import time
 import math
 import base64
@@ -171,7 +172,6 @@ class BoardManager(metaclass=SingletonMeta):
         t_ref = None
         try:
             while total_iterations > iter_counter:
-
                 data = self.board.get_current_board_data(buffer_size_samples) 
 
                 # Start processing only when the buffer is full
@@ -203,6 +203,7 @@ class BoardManager(metaclass=SingletonMeta):
                         #     heart_rate = DataFilter.get_heart_rate(ppg_ir, ppg_red, self.sampling_rate, 1024) 
                         #     # print("heart_rate:",heart_rate)
 
+                    sys.stdout.write(f"\rProgress: {iter_counter+1}/{total_iterations}")
                     if t_current >= t_ref + buffer_duration:
                         data_id, proc_data = service(
                             metadata=self.metadata, 
@@ -213,6 +214,7 @@ class BoardManager(metaclass=SingletonMeta):
                             ppg_red=ppg_red.tolist(), 
                             ppg_ir=ppg_ir.tolist()
                         )
+                        # print("post-request")
                         self.processed_data.append( proc_data )
                         self.data_ids.append( data_id )
                         if callback:
@@ -232,6 +234,7 @@ class BoardManager(metaclass=SingletonMeta):
     # EEG Simulator
     # 
     def generate_dummy_eeg_data(self, params, buffer_duration):
+        print("start generate_dummy_eeg_data")
         # Extract parameters from JSON dictionary
         num_channels = params.get("eeg_channels", 8)
         samples_per_second = params.get("sampling_rate", 256)
@@ -262,6 +265,7 @@ class BoardManager(metaclass=SingletonMeta):
             beta_amp = params.get("beta_amp", 0.1)
             gamma_amp = params.get("gamma_amp", 0.1)
         
+        print("Inside dummy")
         total_samples = samples_per_second * epoch_period
         t = np.linspace(start=0, stop=epoch_period, num=total_samples, endpoint=False)
         eeg_data = np.zeros((num_channels, total_samples))
@@ -359,5 +363,5 @@ class BoardManager(metaclass=SingletonMeta):
                 segment = self.generate_dummy_eeg_data(temp_params, duration)
                 full_data.append(segment)
             eeg_data = np.hstack(full_data)
-
+        print("this is dummy")
         return eeg_data

@@ -45,6 +45,9 @@ import sys
 import os
 import base64
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
 import json
 import jsonschema
 from jsonschema import validate
@@ -70,6 +73,26 @@ from pyedflib import highlevel
 
 from importlib.metadata import version
 
+
+######################################################
+# Global retry strategy
+retry_strategy = Retry(
+    total=5,  # Total number of retries for all errors
+    connect=5,  # Number of retries for connection-related errors
+    read=5,  # Number of retries for read-related errors (e.g., timeouts)
+    backoff_factor=1,  # Wait 1s, 2s, 4s, etc. between retries
+    status_forcelist=[429, 500, 502, 503, 504],  # Retry on these HTTP status codes
+    raise_on_status=False,  # Avoid raising exceptions on retries
+    allowed_methods=["POST", "GET"],  # Retry for these HTTP methods
+)
+
+# Function to create a session with the retry strategy
+def get_retry_session():
+    session = requests.Session()
+    adapter = HTTPAdapter(max_retries=retry_strategy)
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+    return session
 
 ######################################################
 # validate the metadata against a specified schema
@@ -735,7 +758,7 @@ def upload_data(metadata, timestamps, user_id, data, ppg_red, ppg_ir):
     # response = requests.get(url, headers={'X-User-ID':USERID}) # mongo _id for the user document. Communicated at user creation.
 
     if response.status_code == 200:
-        print('.', end='', flush=True)
+        # print('.', end='', flush=True)
         # Extract the unique identifier for the uploaded data
         data_id = response.json().get('data_id')
         return data_id, None
@@ -829,6 +852,84 @@ async def _acquire_send_raw(user_id, session_id, board, serial_number, serial_po
     )
 
 
+
+
+######################################################
+def retry_upload_data(metadata, timestamps, user_id, data, ppg_red, ppg_ir):
+    """
+    Uploads EEG (and PPG) data to the server along with associated metadata (retrying if timeout or connection error).
+
+    This function compiles different types of physiological data along with metadata into a single dictionary,
+    encrypts the data, and then uploads it via a POST request. Upon successful upload, the server returns a
+    unique identifier for the data which can then be used for future queries or operations.
+
+    Args:     
+        **metadata** (*dict*): Information about the data such as subject details and session parameters.     
+        **timestamps** (*list*): List of timestamps correlating with each data point.     
+        **user_id** (*str*): The user id (obtained through free registration with HABS)
+        **data** (*list*): EEG data points.     
+        **ppg_red** (*list*): Red photoplethysmogram data points.     
+        **ppg_ir** (*list*): Infrared photoplethysmogram data points.      
+
+    Returns:     
+        *tuple*: A tuple containing the data ID of the uploaded data if successful, and None otherwise.
+
+    Notes:
+        Ensure that timestamps has the same length of data last dimension.
+
+    Example:
+    ```
+    metadata = {"session_id": "1234", "subject_id": "001"}
+    timestamps = [1597709184, 1597709185]
+    data = [0.1, 0.2]
+    ppg_red = [123, 124]
+    ppg_ir = [125, 126]
+    data_id, error = upload_data(metadata, timestamps, data, ppg_red, ppg_ir)
+    if data_id:
+        print("Data uploaded successfully. Data ID:", data_id)
+    else:
+        print("Upload failed with error:", error)
+    ```
+    """
+    url = f"{BASE_URL}/api/{VERSION}/rawdata"
+    _data = {
+        "metadata": metadata,
+        "timestamps": timestamps,
+        "data": data,
+        "ppg_red": ppg_red,
+        "ppg_ir": ppg_ir
+    }
+    _data = json.dumps(_data).encode('utf-8')
+
+    # response = requests.post(url, json=_data)
+    aes_key_b64 = os.environ.get('AES_KEY')
+    aes_key_bytes = base64.b64decode(aes_key_b64)
+
+    session = get_retry_session()
+    try:
+        response = session.post(
+            url=url,
+            data=encrypt_message(_data, aes_key_bytes),
+            headers={'Content-Type': 'application/octet-stream', 'X-User-ID':user_id},
+            timeout=10
+        )
+        response.raise_for_status()  # Raise error if request fails
+
+        if response.status_code == 200:
+            # print('.', end='', flush=True)
+            # Extract the unique identifier for the uploaded data
+            data_id = response.json().get('data_id')
+            return data_id, None
+        else:
+            print("Upload failed:", response.text)
+            return None
+
+    except requests.exceptions.RequestException as e:
+        print(f"Upload failed:: {e}")
+    finally:
+        session.close()
+
+
 def acquire_eeg_data(user_id, session_id, board, serial_number, serial_port, stream_duration, buffer_duration, callback=None, extra=None):
     # get board
     board_manager = BoardManager(enable_logger=False, board_id=board, serial_number=serial_number, serial_port=serial_port, extra=extra)
@@ -842,30 +943,10 @@ def acquire_eeg_data(user_id, session_id, board, serial_number, serial_port, str
     board_manager.data_acquisition(
         stream_duration=stream_duration, 
         buffer_duration=buffer_duration, 
-        service=upload_data,
+        service=retry_upload_data,
         user_id=user_id,
         callback=callback
     )
-
-
-# # threading version
-# def acquire_send_raw(user_id, session_id, board, serial_number, serial_port, stream_duration, buffer_duration, callback=None, extra=None):
-#     # get board
-#     board_manager = BoardManager(enable_logger=False, board_id=board, serial_number=serial_number, serial_port=serial_port, extra=extra)
-#     if board=="SYNTHETIC":
-#         board_manager.assign_extra(extra)
-#     board_manager.connect()
-
-#     board_manager.metadata['session_id'] = session_id # add session to the data for reference
-
-#     # stream_duration sec, buffer_duration sec
-#     board_manager.data_acquisition(
-#         stream_duration=stream_duration, 
-#         buffer_duration=buffer_duration, 
-#         service=upload_data,
-#         user_id=user_id,
-#         callback=callback
-#     )
 
 
 
