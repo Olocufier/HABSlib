@@ -234,7 +234,6 @@ class BoardManager(metaclass=SingletonMeta):
     # EEG Simulator
     # 
     def generate_dummy_eeg_data(self, params, buffer_duration):
-        print("start generate_dummy_eeg_data")
         # Extract parameters from JSON dictionary
         num_channels = params.get("eeg_channels", 8)
         samples_per_second = params.get("sampling_rate", 256)
@@ -265,7 +264,6 @@ class BoardManager(metaclass=SingletonMeta):
             beta_amp = params.get("beta_amp", 0.1)
             gamma_amp = params.get("gamma_amp", 0.1)
         
-        print("Inside dummy")
         total_samples = samples_per_second * epoch_period
         t = np.linspace(start=0, stop=epoch_period, num=total_samples, endpoint=False)
         eeg_data = np.zeros((num_channels, total_samples))
@@ -347,7 +345,7 @@ class BoardManager(metaclass=SingletonMeta):
         if params.get("asymmetry_strength"):
             asymmetry_band = params.get("asymmetry_band", "Alpha")
             asymmetry_strength = params.get("asymmetry_strength")
-            asymmetry_channels = params.get("asymmetry_channels", (3,4)) # (3,4) Default: F3 (channel 3) and F4 (channel 4)
+            asymmetry_channels = params.get("asymmetry_channels", (1,2)) # Default: AF7 (channel 1) and AF8 (channel 2)
             left_channel, right_channel = asymmetry_channels
             eeg_data[left_channel] += asymmetry_strength * eeg_data[left_channel]  # Amplify left frontal channel
             eeg_data[right_channel] -= asymmetry_strength * eeg_data[right_channel]  # Decrease right frontal channel
@@ -363,5 +361,4 @@ class BoardManager(metaclass=SingletonMeta):
                 segment = self.generate_dummy_eeg_data(temp_params, duration)
                 full_data.append(segment)
             eeg_data = np.hstack(full_data)
-        print("this is dummy")
         return eeg_data
