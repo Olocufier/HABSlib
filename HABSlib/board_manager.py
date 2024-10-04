@@ -343,7 +343,6 @@ class BoardManager(metaclass=SingletonMeta):
 
         # Introduce channel Asymmetry
         if params.get("asymmetry_strength"):
-            asymmetry_band = params.get("asymmetry_band", "Alpha")
             asymmetry_strength = params.get("asymmetry_strength")
             asymmetry_channels = params.get("asymmetry_channels", (1,2)) # Default: AF7 (channel 1) and AF8 (channel 2)
             left_channel, right_channel = asymmetry_channels
