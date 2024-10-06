@@ -1209,7 +1209,7 @@ def upload_servicedata(metadata, timestamps, user_id, data, ppg_red, ppg_ir):
 
     # subscribe to response
     if response.status_code == 200:
-        print('.', end='', flush=True)
+        print(':', end='', flush=True)
         task_id = response.json().get('task_id')
         # print("task_id: ",task_id)
         subscription_response = requests.get(f"{BASE_URL}/api/{VERSION}/results/subscribe/{task_id}", headers={'X-User-ID': user_id}, stream=True)
@@ -1558,7 +1558,152 @@ def get_tagged_interval_data(user_id, session_id, tag):
 
 
 
+def get_tagged_intervals(user_id, session_id):
+    """
+    Retrieves all tagged intervals of a session.
+
+    Args:
+    **user_id** (*str*): The owner user id.
+    **session_id** (*str*): The target session id.
+
+    Returns:
+        *dict*: The list of tagged intervals if successful, None otherwise.
+
+    Example:
+    ```
+    data = get_tagged_intervals(
+        user_id="user_123",
+        session_id="session_456"
+    )
+    if data:
+        print(f"Tags retrieved for session {session_id}")
+    else:
+        print("Failed to retrieve data for the specified session.")
+    ```
+    """
+    if session_id:
+        url = f"{BASE_URL}/api/{VERSION}/session/{session_id}/tags"
+
+        try:
+            response = requests.get(
+                url,
+                headers={'Content-Type': 'application/json', 'X-User-ID': user_id}
+            )
+
+            # Check if the request was successful
+            if response.status_code == 200:
+                # Extract the JSON data from the response
+                data = response.json()
+                
+                if data.get('status') == 'success':
+                    # Return the tagged intervals
+                    return data.get('data', [])
+                else:
+                    print(f"Failed to retrieve tags: {data.get('message', 'Unknown error')}")
+                    return None
+            else:
+                print(f"Error: Received status code {response.status_code}")
+                return None
+
+        except requests.exceptions.RequestException as e:
+            print(f"Request error: {e}")
+            return None
+
+    return None
+
+
+
+
 ######################################################
+# def process_session_pipe(pipeline, params, user_id, date, existing_session_id, existing_tagged_interval=None, session_type="", tags=[]):
+#     """
+#     Process a session data using a pipeline with specified parameters and metadata.
+
+#     This function processes an existing session by applying a specified pipeline and parameters.
+#     It sends a POST request to the API with the session metadata and processing parameters,
+#     creating a new session based on the existing one.
+
+#     Args:
+#         **pipeline** (*str*): The pipeline to be applied to the session.
+#         **params** (*dict*): The processing parameters for the pipeline.
+#         **user_id** (*str*): The user ID (obtained through free registration with HABS).
+#         **date** (*str*): The date of the session.
+#         **existing_session_id** (*str*): The ID of the existing session to be processed.
+#         **existing_tag** (*str*, optional): The label of an existing tagged interval.
+#         **session_type** (*str*, optional): The type of the new session. Defaults to an empty string.
+#         **tags** (*list*, optional): A list of tags associated with the session. Defaults to an empty list.
+
+#     Returns:
+#         tuple: A tuple containing the new session ID and the processed data if the request is successful.
+#         None: If the session creation fails.
+#         bool: False if the session metadata is invalid.
+
+#     Example:
+#         >>> new_session_id, processed_data = process_session_pipe("my_pipeline", {"param1": "value1"}, "12345", "2023-07-03", "existing_session_001")
+#         >>> print(new_session_id, processed_data)
+
+#     Notes:
+#         Ensure that the environment variable `AES_KEY` is set to the base64 encoded AES key.
+
+#     Raises:
+#         Exception: If there is an error in the request or response.
+
+#     """
+#     if existing_session_id:
+#         session_metadata = {
+#           "user_id": user_id, # add user to the session for reference
+#           "session_date": date, # .strftime("%m/%d/%Y, %H:%M:%S"),
+#           "existing_session_id": existing_session_id,
+#           "session_type": f"[On {existing_session_id}]: {session_type}", # type of the new session
+#           "session_tags": tags
+#         }
+#         if validate_metadata(session_metadata, "sessionSchema"):
+#             url = f"{BASE_URL}/api/{VERSION}/sessions/{existing_session_id}/pipe/{pipeline}"
+#             if existing_tagged_interval:
+#                 url = f"{BASE_URL}/api/{VERSION}/sessions/{existing_session_id}/pipe/{pipeline}/tagged_interval/{existing_tagged_interval}"
+#             _session = {
+#                 "metadata": session_metadata,
+#                 "processing_params": params,
+#                 'processing_tagged_interval':existing_tagged_interval,            
+#             }
+#             _session = json.dumps(_session).encode('utf-8')
+#             aes_key_b64 = os.environ.get('AES_KEY')
+#             aes_key_bytes = base64.b64decode(aes_key_b64)
+#             response = requests.post(
+#                 url,
+#                 data=encrypt_message(_session, aes_key_bytes),
+#                 headers={'Content-Type': 'application/octet-stream', 'X-User-ID':user_id}
+#             )
+#             if response.status_code == 200:
+#                 print("Session successfully created. Requesting results ...")
+#                 session_id = response.json().get('session_id')
+#                 task_id = response.json().get('task_id')
+#                 # print("session_id: ",session_id)
+#                 # print("task_id: ",task_id)
+#                 subscription_response = requests.get(
+#                     f"{BASE_URL}/api/{VERSION}/results/subscribe/{task_id}", 
+#                     headers={'X-User-ID': user_id}, 
+#                     stream=True
+#                 )
+#                 if subscription_response.status_code == 200:
+#                     if "error" in subscription_response.text:
+#                         print("Session failed:", subscription_response.text)
+#                         return task_id, None
+#                     processed_data = subscription_response.json().get('pipeData')
+#                     return task_id, processed_data
+#                 else:
+#                     print("Session failed:", subscription_response.status_code, subscription_response.text)
+#             else:
+#                 print("Session failed:", response.text)
+#                 return None, None
+
+#             return None, None 
+#         else:
+#             print("Session failed.")
+#             return None, None
+#     else:
+#         print("Invalid session_id.")
+
 def process_session_pipe(pipeline, params, user_id, date, existing_session_id, existing_tagged_interval=None, session_type="", tags=[]):
     """
     Process a session data using a pipeline with specified parameters and metadata.
@@ -1595,11 +1740,11 @@ def process_session_pipe(pipeline, params, user_id, date, existing_session_id, e
     """
     if existing_session_id:
         session_metadata = {
-          "user_id": user_id, # add user to the session for reference
-          "session_date": date, # .strftime("%m/%d/%Y, %H:%M:%S"),
-          "existing_session_id": existing_session_id,
-          "session_type": f"[On {existing_session_id}]: {session_type}", # type of the new session
-          "session_tags": tags
+            "user_id": user_id, 
+            "session_date": date, 
+            "existing_session_id": existing_session_id,
+            "session_type": f"[On {existing_session_id}]: {session_type}", 
+            "session_tags": tags
         }
         if validate_metadata(session_metadata, "sessionSchema"):
             url = f"{BASE_URL}/api/{VERSION}/sessions/{existing_session_id}/pipe/{pipeline}"
@@ -1608,7 +1753,7 @@ def process_session_pipe(pipeline, params, user_id, date, existing_session_id, e
             _session = {
                 "metadata": session_metadata,
                 "processing_params": params,
-                'processing_tagged_interval':existing_tagged_interval,            
+                'processing_tagged_interval': existing_tagged_interval,
             }
             _session = json.dumps(_session).encode('utf-8')
             aes_key_b64 = os.environ.get('AES_KEY')
@@ -1616,24 +1761,40 @@ def process_session_pipe(pipeline, params, user_id, date, existing_session_id, e
             response = requests.post(
                 url,
                 data=encrypt_message(_session, aes_key_bytes),
-                headers={'Content-Type': 'application/octet-stream', 'X-User-ID':user_id}
+                headers={'Content-Type': 'application/octet-stream', 'X-User-ID': user_id}
             )
             if response.status_code == 200:
                 print("Session successfully created. Requesting results ...")
                 session_id = response.json().get('session_id')
                 task_id = response.json().get('task_id')
-                # print("session_id: ",session_id)
-                # print("task_id: ",task_id)
+
+                # Stream response for progressive data handling
                 subscription_response = requests.get(
                     f"{BASE_URL}/api/{VERSION}/results/subscribe/{task_id}", 
                     headers={'X-User-ID': user_id}, 
                     stream=True
                 )
+
                 if subscription_response.status_code == 200:
-                    if "error" in subscription_response.text:
-                        print("Session failed:", subscription_response.text)
-                        return task_id, None
-                    processed_data = subscription_response.json().get('pipeData')
+                    processed_data = []
+                    # Stream the response line by line
+                    for line in subscription_response.iter_lines(decode_unicode=True):
+                        if line:  # Skip empty lines
+                            if "success" in line:  
+                                try:
+                                    # parse the JSON payload
+                                    event_data = json.loads(line)
+                                    if event_data.get('status') == 'success':
+                                        processed_data.extend( event_data.get('pipeData', []) )  # Append data progressively
+                                        print(f"Received page {event_data.get('page')} of {event_data.get('total_pages')}")
+                                    elif event_data.get('status') == 'completed':
+                                        print("Data streaming complete.")
+                                        break
+                                    elif event_data.get('status') == 'error':
+                                        print("Error in data stream:", event_data.get('error'))
+                                        return task_id, None
+                                except json.JSONDecodeError as e:
+                                    print("JSON decode error:", e)
                     return task_id, processed_data
                 else:
                     print("Session failed:", subscription_response.status_code, subscription_response.text)
