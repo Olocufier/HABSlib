@@ -48,6 +48,8 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+from functools import wraps
+
 import json
 import jsonschema
 from jsonschema import validate
@@ -93,6 +95,47 @@ def get_retry_session():
     session.mount("http://", adapter)
     session.mount("https://", adapter)
     return session
+
+
+######################################################
+# decorator encryption
+def encrypt_request_data(func):
+    @wraps(func)
+    def decorated_function(*args, **kwargs):
+        try:
+            # Get the user_id from args or kwargs (depending on how it's passed)
+            user_id = kwargs.get('user_id') or args[2]  # Assuming user_id is always the 3rd argument
+            aes_key_b64 = os.environ.get(f"AES_KEY_{str(user_id)}")
+
+            if not aes_key_b64:
+                raise Exception('Missing encryption key')
+
+            aes_key_bytes = base64.b64decode(aes_key_b64)
+
+            # Encrypt the data before sending the request
+            data = kwargs.get('data')
+            if data:
+                # JSON encode and then encrypt
+                encrypted_data = encrypt_message(json.dumps(data).encode('utf-8'), aes_key_bytes)
+                kwargs['data'] = encrypted_data
+
+            # Add the required headers for the request
+            if 'headers' not in kwargs:
+                kwargs['headers'] = {}
+            kwargs['headers'].update({
+                'Content-Type': 'application/octet-stream',
+                'X-User-ID': user_id
+            })
+
+            # Call the original function with encrypted data
+            return func(*args, **kwargs)
+
+        except Exception as e:
+            print(f"Error encrypting request data: {e}")
+            return None
+
+    return decorated_function
+
 
 ######################################################
 # validate the metadata against a specified schema
@@ -1093,7 +1136,7 @@ async def _acquire_send_service(service_name, user_id, session_id, board, serial
 
 
 
-
+# @encrypt_request_data
 def set_service(service_name, metadata, user_id):
     """
     Configures and initiates a session on the Cognitive OS for a service.
@@ -1127,31 +1170,29 @@ def set_service(service_name, metadata, user_id):
     ```
     """
     url = f"{BASE_URL}/api/{VERSION}/services/{service_name}"
+
     _session = {
         "metadata": metadata,
         "user_id": user_id
     }
-    _session = json.dumps(_session).encode('utf-8')
-    aes_key_b64 = os.environ.get('AES_KEY')
-    aes_key_bytes = base64.b64decode(aes_key_b64)
+
+    # The _session data will be encrypted by the decorator
     response = requests.post(
         url,
-        data=encrypt_message(_session, aes_key_bytes),
-        headers={'Content-Type': 'application/octet-stream', 'X-User-ID':user_id}
+        data=json.dumps(_session).encode('utf-8'),
+        headers={'Content-Type': 'application/octet-stream', 'X-User-ID': user_id}
     )
+
     if response.status_code == 200:
         print("Session successfully created.")
-        # Extract the unique identifier for the uploaded data
         session_id = response.json().get('session_id')
-        # print(session_id)
         return session_id
     else:
         print("Session failed:", response.text)
         return None
 
 
-
-
+# @encrypt_request_data
 def upload_servicedata(metadata, timestamps, user_id, data, ppg_red, ppg_ir):
     """
     Uploads data to a specific session on the server.
@@ -1203,7 +1244,7 @@ def upload_servicedata(metadata, timestamps, user_id, data, ppg_red, ppg_ir):
     aes_key_bytes = base64.b64decode(aes_key_b64)
     response = requests.post(
         url,
-        data=encrypt_message(_data, aes_key_bytes),
+        data=_data,
         headers={'Content-Type': 'application/octet-stream', 'X-User-ID':user_id}
     )
 
