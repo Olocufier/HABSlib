@@ -1541,8 +1541,8 @@ def create_tagged_interval(user_id, session_id, start_time, end_time, tags, chan
     ```
     interval_id = create_tagged_interval(
         session_id="session_123",
-        start_time="2023-01-01T00:00:00Z",
-        end_time="2023-01-01T00:05:00Z",
+        start_time="2023-01-01T00:00:00.9423Z",
+        end_time="2023-01-01T00:05:00.9423Z",
         tags=[{"tag": "seizure", "properties": {"severity": "high"}}]
     )
     if interval_id:
@@ -1553,6 +1553,8 @@ def create_tagged_interval(user_id, session_id, start_time, end_time, tags, chan
     """
     if session_id:
         url = f"{BASE_URL}/api/{VERSION}/session/{session_id}/tag"
+        # there is no control on times format
+        # assuming timestamp, not string
         interval_data = {
             "user_id": user_id,
             "session_id": session_id,
@@ -1584,7 +1586,7 @@ def create_tagged_interval(user_id, session_id, start_time, end_time, tags, chan
 
 
 
-def get_tagged_interval_data(user_id, session_id, tag):
+def get_tagged_interval_data(user_id, session_id, tag, properties={}):
     """
     Retrieves data for a specific tagged interval from the server.
 
@@ -1619,6 +1621,7 @@ def get_tagged_interval_data(user_id, session_id, tag):
 
         response = requests.get(
             url,
+            json=properties,
             headers={'Content-Type': 'application/json', 'X-User-ID': user_id}
         )
 
