@@ -1586,7 +1586,7 @@ def create_tagged_interval(user_id, session_id, start_time, end_time, tags, chan
 
 
 
-def get_tagged_interval_data(user_id, session_id, tag, properties={}):
+def get_tagged_interval_data(user_id, session_id, tag, tag_property={}):
     """
     Retrieves data for a specific tagged interval from the server.
 
@@ -1621,7 +1621,7 @@ def get_tagged_interval_data(user_id, session_id, tag, properties={}):
 
         response = requests.get(
             url,
-            json=properties,
+            json=tag_property,
             headers={'Content-Type': 'application/json', 'X-User-ID': user_id}
         )
 
