@@ -54,6 +54,7 @@ import json
 import jsonschema
 from jsonschema import validate
 from jsonschema import exceptions
+from rfc3339_validator import validate_rfc3339
 
 import numpy as np
 
@@ -145,7 +146,7 @@ def validate_metadata(metadata, schema_name, schemafile='metadata.json'):
 
     Args:    
         **metadata** (*dict*): The metadata to be validated.    
-        **schema_name** (*str*): The name of the schema to validate against. HABSlib currently supports the validation of Session metadata and User data.    
+        **schema_name** (*str*): The name of the schema to validate against.    
         **schemafile** (*str*, optional): The path to the JSON file containing the schemas. Defaults to 'metadata.json'.    
 
     Returns:    
@@ -195,24 +196,9 @@ def validate_metadata(metadata, schema_name, schemafile='metadata.json'):
         return False
 
 
-def convert_datetime_in_dict(data):
-    """
-    Recursively converts all datetime objects in a dictionary to strings in ISO format.
-
-    Args:     
-        **data** (*dict*): The dictionary containing the data.
-
-    Returns:     
-        *dict*: The dictionary with datetime objects converted to strings.
-    """
-    for key, value in data.items():
-        if isinstance(value, datetime):
-            data[key] = value.isoformat()
-        elif isinstance(value, dict):
-            data[key] = convert_datetime_in_dict(value)
-    return data
 
 
+######################################################
 def head():
     """
     Every library should have a nice ASCII art :)
@@ -239,6 +225,13 @@ def singleton_init(board, serial_number, serial_port):
     # board_manager.connect()
     # board_manager.disconnect()
 
+
+
+######################################################
+def set_base_url(base_url):
+    head()
+    global BASE_URL
+    BASE_URL = base_url
 
 
 
@@ -1170,11 +1163,12 @@ def set_service(service_name, metadata, user_id):
     ```
     """
     url = f"{BASE_URL}/api/{VERSION}/services/{service_name}"
-
+    print(url)
     _session = {
         "metadata": metadata,
         "user_id": user_id
     }
+    print(_session)
 
     # The _session data will be encrypted by the decorator
     response = requests.post(
@@ -1240,8 +1234,8 @@ def upload_servicedata(metadata, timestamps, user_id, data, ppg_red, ppg_ir):
         "ppg_ir": ppg_ir
     }
     _data = json.dumps(_data).encode('utf-8')
-    aes_key_b64 = os.environ.get('AES_KEY')
-    aes_key_bytes = base64.b64decode(aes_key_b64)
+    # aes_key_b64 = os.environ.get('AES_KEY')
+    # aes_key_bytes = base64.b64decode(aes_key_b64)
     response = requests.post(
         url,
         data=_data,
@@ -1626,6 +1620,7 @@ def get_tagged_interval_data(user_id, session_id, tag, tag_property={}):
         )
 
         if response.status_code == 200:
+            # print(response.json())
             data = response.json().get('data')
             print(f"Successfully retrieved data for tag '{tag}'.")
             return data

@@ -79,10 +79,12 @@
       },
       "start_time": {
         "type": "string",
+        "format": "date",
         "description": "Start timestamp of the interval in ISO 8601 format"
       },
       "end_time": {
         "type": "string",
+        "format": "date",
         "description": "End timestamp of the interval in ISO 8601 format"
       },
       "channel_ids": {
