@@ -167,6 +167,13 @@ class BoardManager(metaclass=SingletonMeta):
         # for extra board params
         if self.board_id is BoardIds.SYNTHETIC_BOARD and self.extra_board is not None:
             extra_data = self.generate_dummy_eeg_data(self.extra_board, stream_duration)
+            # adding extra raw at index 0 to correct brainflow accessing from ch 1 on
+            # print(extra_data.shape)
+            newrow = np.zeros(extra_data.shape[1])
+            extra_data = np.vstack([newrow, extra_data])
+            # print(extra_data.shape)
+            eedata = np.float32(extra_data)
+            eedata.tofile("./EEG.data2")
 
         iter_counter = 0
         t_ref = None
@@ -180,9 +187,8 @@ class BoardManager(metaclass=SingletonMeta):
                     # for extra board params
                     # Dummy data has been created before. Here dummy data is copied according to iter
                     if self.board_id is BoardIds.SYNTHETIC_BOARD and self.extra_board is not None:
-                        #      #dummy channels                        ch, from 
+                        #       dummy channels                        ch, from 
                         data[ : extra_data.shape[0], :] = extra_data[ : , iter_counter*buffer_size_samples : (iter_counter+1)*buffer_size_samples ]
-                        # data[:extra_data.shape[0], :] = extra_data
 
                     eeg_data =   data[self.eeg_channels, :]
                     timestamps = data[self.timestamp_channel, :]
@@ -234,6 +240,7 @@ class BoardManager(metaclass=SingletonMeta):
     # EEG Simulator
     # 
     def generate_dummy_eeg_data(self, params, buffer_duration):
+        np.random.seed(42)
         # Extract parameters from JSON dictionary
         num_channels = params.get("eeg_channels", 8)
         samples_per_second = params.get("sampling_rate", 256)
@@ -360,4 +367,7 @@ class BoardManager(metaclass=SingletonMeta):
                 segment = self.generate_dummy_eeg_data(temp_params, duration)
                 full_data.append(segment)
             eeg_data = np.hstack(full_data)
+
+        eeg_data = np.float32(eeg_data)
+        eeg_data.tofile("./EEG.data")
         return eeg_data

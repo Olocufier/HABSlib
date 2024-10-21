@@ -68,10 +68,6 @@ import webbrowser
 from . import BASE_URL, VERSION
 from . import BoardManager
 
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.backends import default_backend
-from . import store_public_key, load_public_key, generate_aes_key, encrypt_aes_key_with_rsa, encrypt_message, decrypt_message
-
 from pyedflib import highlevel
 
 from importlib.metadata import version
@@ -97,45 +93,6 @@ def get_retry_session():
     session.mount("https://", adapter)
     return session
 
-
-######################################################
-# decorator encryption
-def encrypt_request_data(func):
-    @wraps(func)
-    def decorated_function(*args, **kwargs):
-        try:
-            # Get the user_id from args or kwargs (depending on how it's passed)
-            user_id = kwargs.get('user_id') or args[2]  # Assuming user_id is always the 3rd argument
-            aes_key_b64 = os.environ.get(f"AES_KEY_{str(user_id)}")
-
-            if not aes_key_b64:
-                raise Exception('Missing encryption key')
-
-            aes_key_bytes = base64.b64decode(aes_key_b64)
-
-            # Encrypt the data before sending the request
-            data = kwargs.get('data')
-            if data:
-                # JSON encode and then encrypt
-                encrypted_data = encrypt_message(json.dumps(data).encode('utf-8'), aes_key_bytes)
-                kwargs['data'] = encrypted_data
-
-            # Add the required headers for the request
-            if 'headers' not in kwargs:
-                kwargs['headers'] = {}
-            kwargs['headers'].update({
-                'Content-Type': 'application/octet-stream',
-                'X-User-ID': user_id
-            })
-
-            # Call the original function with encrypted data
-            return func(*args, **kwargs)
-
-        except Exception as e:
-            print(f"Error encrypting request data: {e}")
-            return None
-
-    return decorated_function
 
 
 ######################################################
@@ -236,79 +193,6 @@ def set_base_url(base_url):
 
 
 ######################################################
-def handshake(base_url, user_id):  
-    """
-    Perform a handshake with the server to exchange encryption keys for the current session.
-
-    This function performs the following steps:
-    0. Performs login to the HABS server.
-    1. Sends a GET request to the server to initiate an RSA handshake.
-    2. Retrieves the server's public RSA key from the response.
-    3. Generates a local AES key and stores it in the environment.
-    4. Encrypts the AES key with the server's RSA key.
-    5. Sends the encrypted AES key to the server to complete the AES handshake.
-
-    Args:      
-        **base_url** (*str*): The base URL of the server's API.
-        **user_id** (*str*): The user id (obtained through free registration with HABS)
-
-    Returns:     
-        *bool*: True if the handshake is successful, None otherwise.
-
-    Raises:      
-        **requests.RequestException**: If a request to the server fails.
-
-    Example:
-    ```
-    success = handshake("https://example.com")
-    if success:
-        print("Handshake completed successfully.")
-    else:
-        print("Handshake failed.")
-    ```
-    """
-    head()
-    global BASE_URL
-    BASE_URL = base_url
-    url = f"{BASE_URL}/api/{VERSION}/handshake_rsa"
-    # response = requests.get(url)
-    response = requests.get(url, headers={'X-User-ID':user_id}) # mongo _id for the user document. Communicated at user creation.
-
-    if response.status_code == 200:
-        print("Handshake (RSA) successful.")
-        api_public_key_pem = response.json().get('api_public_key')
-        api_public_key = serialization.load_pem_public_key(
-            api_public_key_pem.encode(),
-            backend=default_backend()
-        )
-        os.environ['API_PUBLIC_KEY'] = api_public_key_pem
-
-        # Then we generate and store the AES key
-        aes_key = generate_aes_key()
-        # print("aes_key", aes_key)
-        os.environ['AES_KEY'] = base64.b64encode( aes_key ).decode('utf-8')
-
-        encrypted_aes_key = encrypt_aes_key_with_rsa(aes_key, api_public_key)
-        encrypted_aes_key_b64 = base64.b64encode(encrypted_aes_key).decode('utf-8')
-        # print("encrypted_aes_key_b64",encrypted_aes_key_b64)
-        aes_key_payload = {
-            "encrypted_aes_key": encrypted_aes_key_b64
-        }
-        response = requests.post(f"{BASE_URL}/api/{VERSION}/handshake_aes", json=aes_key_payload, headers={'X-User-ID':user_id})
-
-        if response.status_code == 200:
-            print("Handshake (AES) successful.")
-            return True
-        else:
-            print("Handshake (AES) failed:", response.text)
-            return None
-    else:
-        print("Handshake (RSA) failed:", response.text)
-        return None
-
-
-
-######################################################
 def set_user(user_id, first_name=None, last_name=None, role=None, group=None, email=None, age=None, weight=None, gender=None):
     """
     Creates a user by sending user data to the server.
@@ -361,11 +245,9 @@ def set_user(user_id, first_name=None, last_name=None, role=None, group=None, em
             "user_data": user_data
         }
         _user = json.dumps(_user).encode('utf-8')
-        aes_key_b64 = os.environ.get('AES_KEY')
-        aes_key_bytes = base64.b64decode(aes_key_b64)
         response = requests.post(
             url,
-            data=encrypt_message(_user, aes_key_bytes),
+            data=_user,
             headers={'Content-Type': 'application/octet-stream', 'X-User-ID':user_id}
         )
 
@@ -447,11 +329,8 @@ def get_user_by_id(user_id):
 
     if response.status_code == 200:
         print("User found.")
-        encrypted_data = response.content 
-        aes_key_b64 = os.environ.get('AES_KEY')
-        aes_key_bytes = base64.b64decode(aes_key_b64)
-        decrypted_json_string = decrypt_message(encrypted_data, aes_key_bytes)
-        user_data = json.loads(decrypted_json_string)['user_data']
+        _data = response.content 
+        user_data = json.loads(_data)['user_data']
         return user_data
     else:
         print("User not found:", response.text)
@@ -526,11 +405,9 @@ def set_session(metadata, user_id):
     url = f"{BASE_URL}/api/{VERSION}/sessions"
     _session = metadata
     _session = json.dumps(_session).encode('utf-8')
-    aes_key_b64 = os.environ.get('AES_KEY')
-    aes_key_bytes = base64.b64decode(aes_key_b64)
     response = requests.post(
         url,
-        data=encrypt_message(_session, aes_key_bytes),
+        data=_session,
         headers={'Content-Type': 'application/octet-stream', 'X-User-ID':user_id}
     )
 
@@ -641,11 +518,8 @@ def find_sessions_by_user(user_id):
 
     if response.status_code == 200:
         print("User found.")
-        encrypted_data = response.content 
-        aes_key_b64 = os.environ.get('AES_KEY')
-        aes_key_bytes = base64.b64decode(aes_key_b64)
-        decrypted_json_string = decrypt_message(encrypted_data, aes_key_bytes)
-        session_ids = json.loads(decrypted_json_string)['session_ids']
+        _data = response.content 
+        session_ids = json.loads(_data)['session_ids']
         return session_ids
     else:
         print("Failed to retrieve data:", response.text)
@@ -783,12 +657,9 @@ def upload_data(metadata, timestamps, user_id, data, ppg_red, ppg_ir):
     }
     _data = json.dumps(_data).encode('utf-8')
 
-    # response = requests.post(url, json=_data)
-    aes_key_b64 = os.environ.get('AES_KEY')
-    aes_key_bytes = base64.b64decode(aes_key_b64)
     response = requests.post(
         url,
-        data=encrypt_message(_data, aes_key_bytes),
+        data=_data,
         headers={'Content-Type': 'application/octet-stream', 'X-User-ID':user_id}
     )
     # response = requests.get(url, headers={'X-User-ID':USERID}) # mongo _id for the user document. Communicated at user creation.
@@ -937,15 +808,11 @@ def retry_upload_data(metadata, timestamps, user_id, data, ppg_red, ppg_ir):
     }
     _data = json.dumps(_data).encode('utf-8')
 
-    # response = requests.post(url, json=_data)
-    aes_key_b64 = os.environ.get('AES_KEY')
-    aes_key_bytes = base64.b64decode(aes_key_b64)
-
     session = get_retry_session()
     try:
         response = session.post(
             url=url,
-            data=encrypt_message(_data, aes_key_bytes),
+            data=_data,
             headers={'Content-Type': 'application/octet-stream', 'X-User-ID':user_id},
             timeout=10
         )
@@ -1129,7 +996,6 @@ async def _acquire_send_service(service_name, user_id, session_id, board, serial
 
 
 
-# @encrypt_request_data
 def set_service(service_name, metadata, user_id):
     """
     Configures and initiates a session on the Cognitive OS for a service.
@@ -1163,12 +1029,12 @@ def set_service(service_name, metadata, user_id):
     ```
     """
     url = f"{BASE_URL}/api/{VERSION}/services/{service_name}"
-    print(url)
+    # print(url)
     _session = {
         "metadata": metadata,
         "user_id": user_id
     }
-    print(_session)
+    # print(_session)
 
     # The _session data will be encrypted by the decorator
     response = requests.post(
@@ -1186,7 +1052,6 @@ def set_service(service_name, metadata, user_id):
         return None
 
 
-# @encrypt_request_data
 def upload_servicedata(metadata, timestamps, user_id, data, ppg_red, ppg_ir):
     """
     Uploads data to a specific session on the server.
@@ -1234,8 +1099,7 @@ def upload_servicedata(metadata, timestamps, user_id, data, ppg_red, ppg_ir):
         "ppg_ir": ppg_ir
     }
     _data = json.dumps(_data).encode('utf-8')
-    # aes_key_b64 = os.environ.get('AES_KEY')
-    # aes_key_bytes = base64.b64decode(aes_key_b64)
+
     response = requests.post(
         url,
         data=_data,
@@ -1248,12 +1112,7 @@ def upload_servicedata(metadata, timestamps, user_id, data, ppg_red, ppg_ir):
         task_id = response.json().get('task_id')
         # print("task_id: ",task_id)
         subscription_response = requests.get(f"{BASE_URL}/api/{VERSION}/results/subscribe/{task_id}", headers={'X-User-ID': user_id}, stream=True)
-        # if subscription_response.status_code == 200:
-        #     if "error" in subscription_response.text:
-        #         print("Session failed:", subscription_response.text)
-        #         return task_id, None
-        #     processed_data = subscription_response.json().get('pipeData')
-        #     return task_id, processed_data
+
         if subscription_response.status_code == 200:
             processed_data = []
             # Stream the response line by line
@@ -1327,11 +1186,9 @@ def set_pipe(metadata, pipeline, params, user_id):
         "processing_params": params,
     }
     _session = json.dumps(_session).encode('utf-8')
-    aes_key_b64 = os.environ.get('AES_KEY')
-    aes_key_bytes = base64.b64decode(aes_key_b64)
     response = requests.post(
         url,
-        data=encrypt_message(_session, aes_key_bytes),
+        data=_session,
         headers={'Content-Type': 'application/octet-stream', 'X-User-ID':user_id}
     )
     if response.status_code == 200:
@@ -1394,11 +1251,9 @@ def upload_pipedata(metadata, timestamps, user_id, data, ppg_red, ppg_ir):
         "ppg_ir": ppg_ir
     }
     _data = json.dumps(_data).encode('utf-8')
-    aes_key_b64 = os.environ.get('AES_KEY')
-    aes_key_bytes = base64.b64decode(aes_key_b64)
     response = requests.post(
         url,
-        data=encrypt_message(_data, aes_key_bytes),
+        data=_data, 
         headers={'Content-Type': 'application/octet-stream', 'X-User-ID':user_id}
     )
 
@@ -1408,6 +1263,7 @@ def upload_pipedata(metadata, timestamps, user_id, data, ppg_red, ppg_ir):
         task_id = response.json().get('task_id')
         # print("task_id: ",task_id)
         subscription_response = requests.get(f"{BASE_URL}/api/{VERSION}/results/subscribe/{task_id}", headers={'X-User-ID': user_id}, stream=True)
+
         if subscription_response.status_code == 200:
             processed_data = []
             # Stream the response line by line
@@ -1741,11 +1597,9 @@ def process_session_pipe(pipeline, params, user_id, date, existing_session_id, e
                 'processing_tagged_interval': existing_tagged_interval,
             }
             _session = json.dumps(_session).encode('utf-8')
-            aes_key_b64 = os.environ.get('AES_KEY')
-            aes_key_bytes = base64.b64decode(aes_key_b64)
             response = requests.post(
                 url,
-                data=encrypt_message(_session, aes_key_bytes),
+                data=_session,
                 headers={'Content-Type': 'application/octet-stream', 'X-User-ID': user_id}
             )
             if response.status_code == 200:
@@ -1823,11 +1677,10 @@ def train(session_id, params, user_id):
         "params": params,
     }
     _params = json.dumps(_params).encode('utf-8')
-    aes_key_b64 = os.environ.get('AES_KEY')
-    aes_key_bytes = base64.b64decode(aes_key_b64)
+
     response = requests.post(
         url,
-        data=encrypt_message(_params, aes_key_bytes),
+        data=_params,
         headers={'Content-Type': 'application/octet-stream', 'X-User-ID':user_id}
     )
     # response = requests.get(url, headers={'X-User-ID':USERID}) # mongo _id for the user document. Communicated at user creation.
@@ -1871,11 +1724,9 @@ def infer(data_id, params, user_id):
         }
         _params = json.dumps(_params).encode('utf-8')
         # response = requests.post(url, json=_params)
-        aes_key_b64 = os.environ.get('AES_KEY')
-        aes_key_bytes = base64.b64decode(aes_key_b64)
         response = requests.post(
             url,
-            data=encrypt_message(_params, aes_key_bytes),
+            data=_params,
             headers={'Content-Type': 'application/octet-stream', 'X-User-ID':user_id}
         )
         # response = requests.get(url, headers={}) # mongo _id for the user document. Communicated at user creation.
