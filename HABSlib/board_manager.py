@@ -98,7 +98,7 @@ class BoardManager(metaclass=SingletonMeta):
                 self.board = BoardShim(self.board_id, self.params)
                 self.board.prepare_session()
                 self.board_descr = BoardShim.get_board_descr(self.board_id)
-                self.board.config_board("p52") # or p50 - both give the same result for some reason - need further exploration.
+                # self.board.config_board("p52") # or p50 - both give the same result for some reason - need further exploration.
 
                 self.eeg_channels = self.board.get_eeg_channels(self.board_id)
                 self.sampling_rate = self.board.get_sampling_rate(self.board_id)
@@ -167,13 +167,13 @@ class BoardManager(metaclass=SingletonMeta):
         # for extra board params
         if self.board_id is BoardIds.SYNTHETIC_BOARD and self.extra_board is not None:
             extra_data = self.generate_dummy_eeg_data(self.extra_board, stream_duration)
-            # adding extra raw at index 0 to correct brainflow accessing from ch 1 on
-            # print(extra_data.shape)
-            newrow = np.zeros(extra_data.shape[1])
-            extra_data = np.vstack([newrow, extra_data])
-            # print(extra_data.shape)
-            eedata = np.float32(extra_data)
-            eedata.tofile("./EEG.data2")
+            # # adding extra raw at index 0 to correct brainflow accessing from ch 1 on
+            # # print(extra_data.shape)
+            # newrow = np.zeros(extra_data.shape[1])
+            # extra_data = np.vstack([newrow, extra_data])
+            # # print(extra_data.shape)
+            # eedata = np.float32(extra_data)
+            # eedata.tofile("./EEG.data2")
 
         iter_counter = 0
         t_ref = None
@@ -181,8 +181,18 @@ class BoardManager(metaclass=SingletonMeta):
             while total_iterations > iter_counter:
                 data = self.board.get_current_board_data(buffer_size_samples) 
 
+                # print(data)
+
                 # Start processing only when the buffer is full
                 if data.shape[1] >= buffer_size_samples: 
+
+                    # print(data)
+                    # print(data.shape)
+                    # # Find channels with all zero values
+                    # zero_channels = [index for index, channel in enumerate(data) if np.all(channel == 0)]
+                    # # Print the indices of zero channels
+                    # print("Channels with zero values:", zero_channels)
+                    # 0/0
 
                     # for extra board params
                     # Dummy data has been created before. Here dummy data is copied according to iter
