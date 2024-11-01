@@ -1624,6 +1624,8 @@ def process_session_pipe(pipeline, params, user_id, date, existing_session_id, e
                                     # parse the JSON payload
                                     event_data = json.loads(line)
                                     if event_data.get('status') == 'success':
+                                        ed = event_data.get('pipeData', [])
+                                        print(len(ed))
                                         processed_data.extend( event_data.get('pipeData', []) )  # Append data progressively
                                         print(f"Received page {event_data.get('page')} of {event_data.get('total_pages')}")
                                     elif event_data.get('status') == 'completed':
